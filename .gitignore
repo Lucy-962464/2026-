@@ -18,8 +18,8 @@ _slidep/
 *.log
 
 # 打包上传用的中间件（可按需保留）
-gpt_bundle/
-认知活动源码包_给GPT.zip
+gpt_bundle*/
+*.zip
 
 # 流程图与文档源文件的导出图（体积大，不入库）
 *.png
