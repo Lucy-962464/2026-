@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><title>e2e</title></head>
+<body>
+<pre id="out">E2E running...</pre>
+<iframe id="fr" src="../cognitive-activity-web/participant.html" style="width:1024px;height:768px;"></iframe>
+<script src="../cognitive-activity-web/vendor/index.global.js"></script>
+<script src="../cognitive-activity-web/js/config.js"></script>
+<script src="../cognitive-activity-web/js/api.js"></script>
+<script>
+(async () => {
+  const out = document.getElementById('out');
+  const lines = [];
+  const P = [];
+  const log = (m) => { lines.push(m); out.textContent = lines.join('\n'); };
+  const ok = (name, cond) => { P.push(!!cond); log((cond ? 'PASS ' : 'FAIL ') + name); };
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+  function waitFor(cond, maxPolls) {
+    return new Promise((resolve, reject) => {
+      let n = 0;
+      const iv = setInterval(() => {
+        let v = null;
+        try { v = cond(); } catch (e) { }
+        if (v) { clearInterval(iv); resolve(v); }
+        else if (++n > (maxPolls || 30000)) { clearInterval(iv); reject(new Error('waitFor timeout')); }
+      }, 50);
+    });
+  }
+
+  try {
+    log('step0: 准备建档');
+    /* ============ 准备：建档 ============ */
+    const codeA = 'E2E-' + Math.floor(1000 + Math.random() * 9000);
+    const pa = await api.createParticipant(codeA, '端到端测试A', 'e2e');
+    ok('建档参与者 ' + codeA, pa && pa.id);
+
+    /* ============ UI 流程（iframe 驱动） ============ */
+    const fr = document.getElementById('fr');
+    await waitFor(() => fr.contentDocument && fr.contentDocument.querySelector('#btn-test-mode'));
+    const $f = (s) => fr.contentDocument.querySelector(s);
+    const $$f = (s) => fr.contentDocument.querySelectorAll(s);
+    const viewActive = () => [...$$f('.view')].find(v => v.classList.contains('active'));
+    const ctxOf = () => JSON.parse(fr.contentWindow.sessionStorage.getItem('cog_ctx') || 'null');
+
+    // P01（新版：输入框直接在首屏，输入编号后点「开始活动」）
+    $f('#code-input').value = codeA;
+    $f('#code-input').dispatchEvent(new fr.contentWindow.Event('input'));
+    $f('#btn-code-go').click();
+    await waitFor(() => viewActive() && viewActive().id === 'view-prefs');
+    ok('P01 编号登录 → 进入偏好设置', true);
+
+    // P02
+    $f('#theme-chips .chip').click();
+    $f('#font-seg .chip[data-fs="large"]').click();
+    $f('#help-seg .chip[data-help="no"]').click();
+    $f('#btn-prefs-save').click();
+    await waitFor(() => viewActive() && viewActive().id === 'view-recommend');
+    // 推荐卡片是异步加载的，等任务名真正写入
+    await waitFor(() => $f('#reco-name').textContent && $f('#reco-name').textContent !== '—');
+    ok('P02 偏好保存 → 进入推荐', true);
+    const recoName1 = $f('#reco-name').textContent;
+    ok('P03 推荐卡片显示任务名（' + recoName1 + '）', recoName1 && recoName1 !== '—');
+
+    // 换一项材料
+    $f('#btn-reco-change').click();
+    await sleep(600);
+    ok('P03 换一项材料可用', true);
+
+    // P04
+    $f('#btn-reco-start').click();
+    await waitFor(() => viewActive() && viewActive().id === 'view-instruction');
+    ok('P04 进入指导语页', true);
+
+    // 练习
+    $f('#btn-practice-start').click();
+    await waitFor(() => viewActive() && viewActive().id === 'view-task' && $f('#respond-area').style.display !== 'none');
+    let ctx = ctxOf();
+    ok('练习题进入作答阶段（' + ctx.presentedItems.length + ' 个物品）', ctx.presentedItems && ctx.presentedItems.length === 2);
+    // 按呈现顺序点击
+    ctx.presentedItems.forEach(it => {
+      [...$$f('#item-grid .item-card')].find(b => b.textContent.includes(it.name)).click();
+    });
+    $f('#btn-submit').click();
+    await waitFor(() => $f('#confirm-mask').classList.contains('show'));
+    $f('#confirm-yes').click();
+    ok('练习提交完成', true);
+
+    // 正式三题
+    const answers = ['correct', 'wrong', 'correct'];
+    let undoDone = false;
+    for (let q = 0; q < 3; q++) {
+      await waitFor(() => {
+        const c = ctxOf();
+        return c && !c.practiceMode && c.phase === 'responding' && $f('#respond-area').style.display !== 'none' && c.sequenceNo === q + 1;
+      });
+      ctx = ctxOf();
+      const presented = ctx.presentedItems;
+      // Q1 先做一个撤销操作
+      if (q === 0) {
+        [...$$f('#item-grid .item-card')].find(b => b.textContent.includes(presented[0].name)).click();
+        $f('#btn-undo').click();
+        undoDone = true;
+      }
+      const order = answers[q] === 'correct' ? presented : presented.slice().reverse();
+      order.forEach(it => {
+        [...$$f('#item-grid .item-card')].find(b => b.textContent.includes(it.name)).click();
+      });
+      $f('#btn-submit').click();
+      await waitFor(() => $f('#confirm-mask').classList.contains('show'));
+      $f('#confirm-yes').click();
+      await sleep(400);
+    }
+    ok('三道正式题全部提交（含一次撤销操作）', undoDone);
+
+    // P06
+    await waitFor(() => viewActive() && viewActive().id === 'view-feedback');
+    ok('P06 进入完成反馈页', true);
+    $f('#rating-row .rating-btn[data-rating="just_right"]').click();
+    await waitFor(() => !$f('#btn-finish').disabled);
+    ok('体验反馈保存成功（结束按钮解锁）', true);
+    await waitFor(() => $f('#fb-summary').textContent.indexOf('完成题目') >= 0, 15000);
+    const summaryText = $f('#fb-summary').textContent;
+    ok('会话小结显示（' + summaryText.replace(/\s+/g, ' ') + '）', summaryText.includes('完成题目'));
+
+    $f('#btn-finish').click();
+    await waitFor(() => viewActive() && viewActive().id === 'view-welcome');
+    ok('结束并清除信息（回到欢迎页）', !fr.contentWindow.sessionStorage.getItem('cog_ctx'));
+
+    /* ============ 数据核验 ============ */
+    await sleep(1500); // 等事件日志冲刷
+    const pA2 = await api.participantByCode(codeA);
+    const attempts = await api.participantAttempts(pA2.id);
+    const formal = attempts.filter(a => !a.is_practice);
+    const practice = attempts.filter(a => a.is_practice);
+    ok('记录：练习 ' + practice.length + ' 条 + 正式 ' + formal.length + ' 条',
+      practice.length === 1 && formal.length === 3);
+    ok('记录：全部已提交', formal.every(a => a.status === 'submitted'));
+    // Q1 correct: 全对；Q2 倒序：物品全再现但顺序错（偶数个无固定点，奇数个中位不动）；Q3: 全对
+    const n1 = formal[0].total_items;
+    ok('评分 Q1 位置全对 ' + formal[0].positional_correct + '/' + n1,
+      formal[0].positional_correct === n1 && formal[0].full_correct === true);
+    const n2 = formal[1].total_items;
+    const expectPos2 = (n2 % 2 === 0) ? 0 : 1;
+    ok('评分 Q2 倒序 ' + formal[1].positional_correct + '/' + n2 + '（物品再现 ' + formal[1].item_correct + '，完整正确=false）',
+      formal[1].positional_correct === expectPos2 && formal[1].full_correct === false && formal[1].item_correct === n2);
+    const n3 = formal[2].total_items;
+    ok('评分 Q3 位置全对 ' + formal[2].positional_correct + '/' + n3,
+      formal[2].positional_correct === n3 && formal[2].full_correct === true);
+
+    // 事件日志核验
+    const evs = await api.listEvents(formal[0].id);
+    const types = evs.map(e => e.event_type);
+    ok('事件日志包含 undo', types.includes('undo'));
+    ok('事件日志包含 select/submit/present_start/respond_start',
+      ['select', 'submit', 'present_start', 'respond_start'].every(t => types.includes(t)));
+
+    // 反馈核验
+    const pA = await api.participantByCode(codeA);
+    const hist = await api.historyFor(pA.id, 50);
+    ok('再次登录可读历史（' + hist.length + ' 条）', hist.length === 3);
+
+    /* ============ 推荐差异化验证 ============ */
+    // 参与者B：全部满分 → 应推荐 hard
+    const codeB = 'E2E-' + Math.floor(1000 + Math.random() * 9000);
+    const pb = await api.createParticipant(codeB, '端到端测试B', 'e2e');
+    const sb = await api.startSession(pb.id, 'test');
+    for (let i = 0; i < 3; i++) {
+      const att = await api.createAttempt(sb.id, pb.id, 1, i + 1, false, null);
+      const resp = att.presented_items.map(x => ({ id: x.id }));
+      const r = await api.submitAttempt(att.attempt_id, resp, []);
+      if (!r.ok) log('B submit fail: ' + JSON.stringify(r));
+    }
+    await api.endSession(sb.id);
+    const rb = await api.getRecommendation(pb.id, null);
+    ok('满分参与者推荐 hard（实际 ' + rb.difficulty + '，历史 ' + rb.history_count + ' 次，正确率 ' + rb.accuracy + '）', rb.difficulty === 'hard');
+
+    // 参与者A：2/3 题满分，正确率 (3+1+3)/9 = 0.78 → medium
+    const ra = await api.getRecommendation(pA.id, null);
+    ok('78% 正确率参与者推荐 medium（实际 ' + ra.difficulty + '）', ra.difficulty === 'medium');
+
+    // 参与者C：新参与者 → easy
+    const codeC = 'E2E-' + Math.floor(1000 + Math.random() * 9000);
+    const pc = await api.createParticipant(codeC, '端到端测试C', 'e2e');
+    const rc = await api.getRecommendation(pc.id, null);
+    ok('新参与者推荐 easy（实际 ' + rc.difficulty + '）', rc.difficulty === 'easy');
+
+    /* ============ 中断与清理验证 ============ */
+    const sd = await api.startSession(pc.id, 'test');
+    const attd = await api.createAttempt(sd.id, pc.id, 1, 1, false, null);
+    await api.interruptAttempt(attd.attempt_id, 'refresh');
+    const after = await api.attemptById(attd.attempt_id);
+    ok('中断尝试标记为 interrupted（原因 refresh）', after.status === 'interrupted' && after.interrupted_reason === 'refresh');
+    // 重复提交被拒
+    const dup = await api.submitAttempt(formal[0].id, [{ id: 1 }], []);
+    ok('重复提交被拒绝（' + dup.reason + '）', dup.ok === false && dup.reason === 'already_submitted');
+    await api.endSession(sd.id);
+
+    // 清理端到端测试数据标记（保留在库中不影响业务，工作人员端可见；此处仅记录）
+    log('测试参与者：' + codeA + ' / ' + codeB + ' / ' + codeC + '（均为测试编号，不影响真实参与者档案）');
+
+  } catch (e) {
+    ok('流程异常中断：' + (e && e.message ? e.message : String(e)), false);
+  }
+
+  const pass = P.filter(x => x).length;
+  document.title = 'E2E_' + pass + '_' + P.length;
+  out.textContent = lines.join('\n') + '\n\n==== 结果：' + pass + ' / ' + P.length + ' 通过 ====';
+})();
+</script>
+</body>
+</html>

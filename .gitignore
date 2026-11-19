@@ -1,0 +1,31 @@
+# 依赖 / 构建
+node_modules/
+dist/
+__pycache__/
+
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# 本地临时产物
+_shot/
+_slidep/
+.workbuddy/
+*.genie
+*.log
+
+# 打包上传用的中间件（可按需保留）
+gpt_bundle/
+认知活动源码包_给GPT.zip
+
+# 流程图与文档源文件的导出图（体积大，不入库）
+*.png
+md_part*.md
+source_extract.txt
+build_doc.py
+
+# 流程图导出（体积大，按需单独归档）
+*.svg

@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>认知活动 · 参与者端</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- 顶部小条（欢迎页不显示） -->
+<div class="p-topbar" id="topbar" style="display:none">
+  <span class="who" id="topbar-who"></span>
+  <button class="mini-btn" id="btn-topbar-exit">退出活动</button>
+</div>
+
+<div class="p-wrap">
+
+  <!-- ============ P01 欢迎与身份识别 ============ -->
+  <section class="view" id="view-welcome">
+    <div class="welcome-head">
+      <div class="logo">🧠</div>
+      <h1>社区老年人个性化认知活动支持系统</h1>
+      <p>今天的脑力小活动，现在开始</p>
+    </div>
+    <div class="card login-card">
+      <label class="login-label" for="code-input">请输入身份证号</label>
+      <input class="input id-input" id="code-input" type="text" inputmode="numeric"
+             maxlength="20" autocomplete="off" spellcheck="false" placeholder="18 位身份证号">
+      <button class="btn btn-primary btn-lg btn-block" id="btn-code-go" style="margin-top:1rem;">开始活动</button>
+      <p class="privacy-note">号码只用于找回您自己的活动记录，系统不保存号码本身。</p>
+      <p class="login-msg" id="code-msg"></p>
+    </div>
+
+    <div class="test-entry">
+      <button class="link-btn" id="btn-test-mode">测试演示 · 使用虚拟编号</button>
+      <p class="privacy-note center">仅测试用；正式使用请填身份证号。</p>
+    </div>
+
+    <p class="hint center" style="margin-top:1.1rem;">输入有困难？可以请现场工作人员协助操作。</p>
+  </section>
+
+  <!-- ============ P02 初始偏好与辅助设置 ============ -->
+  <section class="view" id="view-prefs">
+    <div class="card">
+      <h2 style="margin-bottom:0.3rem;">先简单了解一下您</h2>
+      <p class="muted">以下问题都可以跳过，不影响您参加活动。</p>
+
+      <div class="label">您平时比较喜欢哪些生活主题？（可多选）</div>
+      <div class="chip-grid" id="theme-chips"></div>
+
+      <div class="label">屏幕文字大小</div>
+      <div class="seg" id="font-seg">
+        <button class="chip" data-fs="normal">标准</button>
+        <button class="chip" data-fs="large">大字</button>
+        <button class="chip" data-fs="xlarge">特大</button>
+      </div>
+
+      <div class="label">是否需要工作人员在旁协助操作？</div>
+      <div class="seg" id="help-seg">
+        <button class="chip" data-help="no">我自己可以</button>
+        <button class="chip" data-help="yes">需要协助</button>
+      </div>
+
+      <div style="display:flex; gap:1rem; margin-top:2rem; justify-content:flex-end; flex-wrap:wrap;">
+        <button class="btn btn-ghost" id="btn-prefs-skip">跳过，直接开始</button>
+        <button class="btn btn-primary" id="btn-prefs-save">保存并继续</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ P03 任务推荐 ============ -->
+  <section class="view" id="view-recommend">
+    <div class="reco-card card">
+      <div class="tagline" id="reco-tagline">今天为您推荐</div>
+      <h2 id="reco-name">—</h2>
+      <p class="desc" id="reco-desc">—</p>
+      <div class="reco-meta">
+        <span>类型：<b>顺序记忆</b></span>
+        <span>物品数量：<b id="reco-items">—</b></span>
+        <span>预计用时：<b id="reco-time">约 5–8 分钟</b></span>
+      </div>
+      <div class="reco-actions">
+        <button class="btn btn-primary btn-lg" id="btn-reco-start">✅ 就做这个，开始</button>
+        <button class="btn btn-outline" id="btn-reco-change">🔄 换一项材料</button>
+      </div>
+      <p class="history-strip" id="reco-history"></p>
+    </div>
+  </section>
+
+  <!-- ============ P04 指导语与练习 ============ -->
+  <section class="view" id="view-instruction">
+    <div class="card">
+      <h2 style="margin-bottom:0.4rem;">怎么做这个活动？</h2>
+      <p class="muted" id="instr-text" style="font-size:1.05rem;"></p>
+      <div class="instr-steps">
+        <div class="instr-step">
+          <div class="n">1</div>
+          <span class="emoji">👀</span>
+          <p>屏幕上会<b>一个一个</b>出现物品</p>
+        </div>
+        <div class="instr-step">
+          <div class="n">2</div>
+          <span class="emoji">🧠</span>
+          <p>请记住它们<b>出现的顺序</b></p>
+        </div>
+        <div class="instr-step">
+          <div class="n">3</div>
+          <span class="emoji">👆</span>
+          <p>按顺序<b>点选</b>下方物品，可撤销、可重选</p>
+        </div>
+      </div>
+      <div class="task-actions">
+        <button class="btn btn-primary btn-lg" id="btn-practice-start">先练一练（不计成绩）</button>
+      </div>
+      <p class="hint center" style="margin-top:1rem;">练习题不会计入正式记录；正式任务开始后就不能回看答案了。</p>
+    </div>
+  </section>
+
+  <!-- ============ P05 正式任务（含练习） ============ -->
+  <section class="view" id="view-task">
+    <div class="task-header">
+      <div>
+        <div class="title" id="task-title">备菜清单</div>
+        <div class="sub" id="task-sub">第 1 / 3 题 · 顺序再现</div>
+      </div>
+      <button class="btn-exit" id="btn-exit">退出活动</button>
+    </div>
+
+    <div class="task-body">
+      <div class="stage" id="task-stage">
+        <div class="tip">准备……</div>
+      </div>
+
+      <div id="respond-area" style="display:none;">
+        <p class="center" style="margin-bottom:0.9rem; font-weight:700;">请按刚才出现的顺序选择物品</p>
+        <div class="slots" id="slots"></div>
+        <div class="item-grid" id="item-grid"></div>
+        <div class="task-actions">
+          <button class="btn btn-ghost" id="btn-undo">↩️ 撤销上一步</button>
+          <button class="btn btn-ghost" id="btn-clear">🧹 重新选择</button>
+          <button class="btn btn-primary" id="btn-submit" disabled>✅ 确认提交</button>
+        </div>
+      </div>
+
+      <div class="help-bar">
+        <button class="btn btn-outline" id="btn-help" style="min-height:48px;">🙋 需要帮助</button>
+      </div>
+    </div>
+    <div class="phase-banner" id="phase-banner"></div>
+  </section>
+
+  <!-- ============ P06 完成反馈 ============ -->
+  <section class="view" id="view-feedback">
+    <div class="card" style="text-align:center; padding:2.2rem 1.4rem;">
+      <div style="font-size:3.4rem;">🎉</div>
+      <h2 style="margin:0.6rem 0 0.3rem;">本次活动已完成</h2>
+      <p class="muted">感谢您的参与！您的记录已保存，下次再来会接着上次的进展。</p>
+
+      <div class="fb-summary" id="fb-summary"></div>
+
+      <div class="label center" style="text-align:center;">今天的活动感觉怎么样？</div>
+      <div class="rating-row" id="rating-row">
+        <button class="rating-btn" data-rating="too_easy"><span class="emoji">😌</span>比较轻松</button>
+        <button class="rating-btn" data-rating="just_right"><span class="emoji">🙂</span>刚刚好</button>
+        <button class="rating-btn" data-rating="too_hard"><span class="emoji">🤔</span>有些困难</button>
+      </div>
+
+      <div style="margin-top:1.8rem;">
+        <button class="btn btn-primary btn-lg" id="btn-finish" disabled>结束并清除我的信息</button>
+        <p class="hint" style="margin-top:0.7rem;">选择感受后即可结束。结束后屏幕上不会保留您的任何信息。</p>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- 提交确认弹窗 -->
+<div class="modal-mask" id="confirm-mask">
+  <div class="modal">
+    <h3 id="confirm-title">确认提交？</h3>
+    <p class="muted" id="confirm-text">提交后就不能再修改了。</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="confirm-no">再想想</button>
+      <button class="btn btn-primary" id="confirm-yes">确认</button>
+    </div>
+  </div>
+</div>
+
+<!-- 帮助弹窗 -->
+<div class="modal-mask" id="help-mask">
+  <div class="modal">
+    <h3>您需要哪方面的帮助？</h3>
+    <div style="display:flex; flex-direction:column; gap:0.7rem;">
+      <button class="btn btn-outline btn-block help-opt" data-help="read_aloud">🔊 把题目说明再念一遍</button>
+      <button class="btn btn-outline btn-block help-opt" data-help="demonstrate">🖐️ 演示一下怎么操作</button>
+      <button class="btn btn-outline btn-block help-opt" data-help="other">💬 其他帮助</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="help-close">关闭</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="vendor/index.global.js"></script>
+<script src="js/config.js"></script>
+<script src="js/identity.js"></script>
+<script src="js/api.js"></script>
+<script src="js/participant.js"></script>
+</body>
+</html>

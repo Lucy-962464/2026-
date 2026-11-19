@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><title>登录界面测试</title></head>
+<body>
+<pre id="out">running...</pre>
+<iframe id="fr" style="width:1024px;height:768px;border:1px solid #ccc;"></iframe>
+<script>
+(function () {
+  const lines = [];
+  let pass = 0, fail = 0;
+  function log(s) { lines.push(s); document.getElementById('out').textContent = lines.join('\n'); }
+  function ok(name, cond, extra) {
+    if (cond) pass++; else fail++;
+    lines.push((cond ? 'PASS  ' : 'FAIL  ') + name + (cond ? '' : ('  << ' + extra)));
+    document.getElementById('out').textContent = lines.join('\n');
+  }
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+  function waitFor(cond, ms) {
+    const limit = ms || 20000;
+    return new Promise((resolve) => {
+      const t0 = Date.now();
+      const tick = () => {
+        let v = null;
+        try { v = cond(); } catch (e) { }
+        if (v) return resolve(v);
+        if (Date.now() - t0 > limit) return resolve(null);
+        setTimeout(tick, 120);
+      };
+      tick();
+    });
+  }
+
+  const ID_A = '110101199003071233';
+  const ID_WRONG = '110101199003071234';
+  const fr = document.getElementById('fr');
+
+  function load() {
+    sessionStorage.clear();
+    return new Promise(resolve => {
+      const onLoad = () => {
+        waitFor(() => {
+          const d = fr.contentDocument;
+          if (!d) return null;
+          const btn = d.querySelector('#btn-code-go');
+          // 必须等到事件绑定完成（onclick 已挂上），否则点击无效
+          return btn && typeof btn.onclick === 'function' &&
+            fr.contentWindow.Identity && fr.contentWindow.api ? btn : null;
+        }, 20000).then(resolve);
+      };
+      fr.addEventListener('load', onLoad, { once: true });
+      fr.src = '../cognitive-activity-web/participant.html?t=' + Date.now();
+    });
+  }
+  const $f = (s) => fr.contentDocument.querySelector(s);
+
+  async function run() {
+    /* ========== 场景 1：虚拟编号 ========== */
+    const ready = await load();
+    ok('页面加载完成，登录表单位于首屏', !!ready);
+    ok('已无「工作人员协助」入口', !$f('#btn-assist') && !$f('#assist-panel'));
+
+    $f('#btn-test-mode').click();
+    await sleep(200);
+    const testCode = $f('#code-input').value;
+    ok('点「测试演示」自动填入虚拟编号', /^TEST-\d{4}$/.test(testCode), testCode);
+    ok('填入后有提示文字', $f('#code-msg').textContent.indexOf('虚拟编号') >= 0, $f('#code-msg').textContent);
+
+    $f('#btn-code-go').click();
+    const gotPrefs = await waitFor(() => {
+      const a = fr.contentDocument.querySelector('.view.active');
+      return a && (a.id === 'view-prefs' || a.id === 'view-recommend') ? a.id : null;
+    }, 25000);
+    ok('虚拟编号可进入下一步', gotPrefs === 'view-prefs' || gotPrefs === 'view-recommend', '当前视图 ' + gotPrefs);
+    ok('顶栏显示测试编号', $f('#topbar-who').textContent.indexOf('测试编号') >= 0, $f('#topbar-who').textContent);
+
+    /* ========== 场景 2：身份证号 ========== */
+    await load();
+    $f('#code-input').value = ID_A;
+    $f('#code-input').dispatchEvent(new fr.contentWindow.Event('input'));
+    $f('#btn-code-go').click();
+    const got2 = await waitFor(() => {
+      const a = fr.contentDocument.querySelector('.view.active');
+      return a && (a.id === 'view-prefs' || a.id === 'view-recommend') ? a.id : null;
+    }, 30000);
+    ok('身份证号可进入下一步', got2 === 'view-prefs' || got2 === 'view-recommend', '当前视图 ' + got2);
+    ok('顶栏显示身份证尾号而非全号',
+      $f('#topbar-who').textContent.indexOf('身份证尾号 1233') >= 0 &&
+      $f('#topbar-who').textContent.indexOf(ID_A) < 0,
+      $f('#topbar-who').textContent);
+    ok('输入框已清空，屏幕不留号码', $f('#code-input').value === '');
+
+    /* ========== 场景 3：校验位错误 ========== */
+    await load();
+    $f('#code-input').value = ID_WRONG;
+    $f('#code-input').dispatchEvent(new fr.contentWindow.Event('input'));
+    $f('#btn-code-go').click();
+    await sleep(1200);
+    const msg = $f('#code-msg');
+    const stillWelcome = fr.contentDocument.querySelector('.view.active').id === 'view-welcome';
+    ok('校验位错误时停在欢迎页', stillWelcome);
+    ok('给出明确错误提示', msg.textContent.indexOf('校验') >= 0 || msg.textContent.indexOf('格式') >= 0, msg.textContent);
+    ok('错误提示为红色样式', msg.className.indexOf('err') >= 0, msg.className);
+
+    /* ========== 场景 4：位数不足 ========== */
+    await load();
+    $f('#code-input').value = '11010119900307';
+    $f('#code-input').dispatchEvent(new fr.contentWindow.Event('input'));
+    $f('#btn-code-go').click();
+    await sleep(800);
+    ok('位数不足时提示 18 位',
+      $f('#code-msg').textContent.indexOf('18 位') >= 0, $f('#code-msg').textContent);
+
+    lines.push('');
+    lines.push('RESULT ' + pass + ' passed, ' + fail + ' failed');
+    document.getElementById('out').textContent = lines.join('\n');
+  }
+
+  run().catch(e => {
+    lines.push('EXCEPTION: ' + (e && (e.stack || e.message || e)));
+    document.getElementById('out').textContent = lines.join('\n');
+  });
+})();
+</script>
+</body>
+</html>

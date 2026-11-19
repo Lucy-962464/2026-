@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><title>身份识别与登录测试</title></head>
+<body>
+<pre id="out">running...</pre>
+<script src="../cognitive-activity-web/vendor/index.global.js"></script>
+<script src="../cognitive-activity-web/js/config.js"></script>
+<script src="../cognitive-activity-web/js/identity.js"></script>
+<script src="../cognitive-activity-web/js/api.js"></script>
+<script>
+(function () {
+  const lines = [];
+  let pass = 0, fail = 0;
+  function log(s) { lines.push(s); document.getElementById('out').textContent = lines.join('\n'); }
+  function ok(name, cond, extra) {
+    if (cond) { pass++; lines.push('PASS  ' + name); }
+    else { fail++; lines.push('FAIL  ' + name + (extra ? '  << ' + extra : '')); }
+    document.getElementById('out').textContent = lines.join('\n');
+  }
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  // 格式合法但虚构的测试号码
+  const ID_A = '110101199003071233';
+  const ID_B = '440305195808152342';
+  const ID_WRONG = '110101199003071234';
+
+  async function run() {
+    /* ---- 1. 身份证校验 ---- */
+    ok('校验：合法号码 A 通过', Identity.checkIdCard(ID_A) === true);
+    ok('校验：合法号码 B 通过', Identity.checkIdCard(ID_B) === true);
+    ok('校验：校验位错误的号码被拒', Identity.checkIdCard(ID_WRONG) === false);
+    ok('校验：日期不存在的号码被拒', Identity.checkIdCard('110101199002301234') === false);
+
+    /* ---- 2. 输入判别 ---- */
+    ok('判别：身份证 → idcard', Identity.classify(ID_A).type === 'idcard');
+    ok('判别：校验位错 → 报错', !!Identity.classify(ID_WRONG).error);
+    ok('判别：17 位数字 → 报错', !!Identity.classify('11010119900307123').error);
+    ok('判别：TEST-1234 → 测试编号', Identity.classify('TEST-1234').type === 'test');
+    ok('判别：空输入 → 报错', !!Identity.classify('   ').error);
+    ok('判别：纯数字短串不当测试编号', !!Identity.classify('1234').error);
+
+    /* ---- 3. 派生编号 ---- */
+    const t0 = Date.now();
+    const c1 = await Identity.deriveIdCode(ID_A);
+    const cost = Date.now() - t0;
+    const c2 = await Identity.deriveIdCode(ID_A);
+    const c3 = await Identity.deriveIdCode(ID_B);
+    ok('派生：同一号码两次结果一致', c1 === c2, c1 + ' vs ' + c2);
+    ok('派生：不同号码结果不同', c1 !== c3);
+    ok('派生：长度与格式正确', /^ID-[0-9A-F]{32}$/.test(c1), c1);
+    ok('派生：结果不含号码原文', c1.indexOf(ID_A) < 0 && c1.indexOf(ID_A.slice(0, 8)) < 0);
+    log('派生耗时 ' + cost + ' ms（PBKDF2 210000 次）');
+
+    /* ---- 4. 登录建档流程 ---- */
+    const TEST_CODE = 'TEST-' + Math.floor(1000 + Math.random() * 9000);
+    const r1 = await api.loginOrCreate(TEST_CODE, 'test');
+    ok('登录：首次进入自动建档', r1.participant && r1.created === true, JSON.stringify(r1).slice(0, 120));
+    const pid1 = r1.participant && r1.participant.id;
+
+    const r2 = await api.loginOrCreate(TEST_CODE, 'test');
+    ok('登录：再次进入命中同一档案', r2.created === false && r2.participant.id === pid1,
+       'id ' + pid1 + ' vs ' + (r2.participant && r2.participant.id));
+
+    const idc = await Identity.resolve(ID_A);
+    ok('解析：身份证得到 ID- 前缀编号', idc.code.indexOf('ID-') === 0 && idc.tail === '1233',
+       idc.code.slice(0, 12) + '… tail=' + idc.tail);
+
+    const r3 = await api.loginOrCreate(idc.code, 'idcard');
+    ok('登录：身份证编号可建档或恢复既有档案',
+       r3.participant && (r3.created === true || r3.reactivated === true),
+       JSON.stringify({ created: r3.created, reactivated: r3.reactivated }));
+    const r4 = await api.loginOrCreate(idc.code, 'idcard');
+    ok('登录：身份证再次进入命中同一档案', r4.created === false && r3.participant.id === r4.participant.id);
+
+    const r5 = await api.loginOrCreate('ID-FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF', 'idcard');
+    ok('登录：另一个编号是另一份档案', r5.participant && r5.participant.id !== r3.participant.id);
+
+    /* ---- 5. 会话与推荐链路仍然通 ---- */
+    const s = await api.startSession(pid1, 'test');
+    ok('会话：可创建', !!(s && s.id));
+    const rec = await api.getRecommendation(pid1, null);
+    ok('推荐：新参与者得到入门任务', rec && rec.ok === true && rec.difficulty === 'easy',
+       JSON.stringify(rec).slice(0, 140));
+    try { await api.endSession(s.id); } catch (e) { }
+
+    /* ---- 收尾：把测试档案标记为 inactive，不污染正式数据 ---- */
+    try {
+      await api.updateParticipant(pid1, { status: 'inactive' });
+      await api.updateParticipant(r3.participant.id, { status: 'inactive' });
+      await api.updateParticipant(r5.participant.id, { status: 'inactive' });
+      log('已把 3 份测试档案标记为 inactive');
+    } catch (e) { log('清理测试档案失败：' + e); }
+
+    lines.push('');
+    lines.push('RESULT ' + pass + ' passed, ' + fail + ' failed');
+    document.getElementById('out').textContent = lines.join('\n');
+  }
+
+  run().catch(e => {
+    lines.push('EXCEPTION: ' + (e && (e.stack || e.message || e)));
+    document.getElementById('out').textContent = lines.join('\n');
+  });
+})();
+</script>
+</body>
+</html>

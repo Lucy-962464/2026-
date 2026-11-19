@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><title>二次登录测试</title></head>
+<body>
+<pre id="out">running...</pre>
+<iframe id="fr" style="width:1024px;height:768px;border:1px solid #ccc;"></iframe>
+<script>
+(function () {
+  const lines = [];
+  let pass = 0, fail = 0;
+  function log(s) { lines.push(s); document.getElementById('out').textContent = lines.join('\n'); }
+  function ok(name, cond, extra) {
+    if (cond) pass++; else fail++;
+    lines.push((cond ? 'PASS  ' : 'FAIL  ') + name + (cond ? '' : ('  << ' + extra)));
+    document.getElementById('out').textContent = lines.join('\n');
+  }
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+  function waitFor(cond, ms) {
+    const limit = ms || 25000;
+    return new Promise(resolve => {
+      const t0 = Date.now();
+      const tick = () => {
+        let v = null;
+        try { v = cond(); } catch (e) { }
+        if (v) return resolve(v);
+        if (Date.now() - t0 > limit) return resolve(null);
+        setTimeout(tick, 120);
+      };
+      tick();
+    });
+  }
+
+  /* 每次运行都生成一个全新且校验位合法的身份证号，保证“首次登录”断言可重复 */
+  function newIdNo() {
+    const W = [7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10, 5, 8, 4, 2];
+    const C = ['1', '0', 'X', '9', '8', '7', '6', '5', '4', '3', '2'];
+    const region = '440305';
+    const y = 1935 + Math.floor(Math.random() * 20);
+    const m = String(1 + Math.floor(Math.random() * 12)).padStart(2, '0');
+    const d = String(1 + Math.floor(Math.random() * 28)).padStart(2, '0');
+    const seq = String(100 + Math.floor(Math.random() * 900));
+    const base = region + y + m + d + seq;
+    let sum = 0;
+    for (let i = 0; i < 17; i++) sum += (+base[i]) * W[i];
+    return base + C[sum % 11];
+  }
+  const ID_B = newIdNo();
+  const fr = document.getElementById('fr');
+  const $f = (s) => fr.contentDocument.querySelector(s);
+  const viewId = () => {
+    const a = fr.contentDocument.querySelector('.view.active');
+    return a ? a.id : null;
+  };
+
+  function load() {
+    sessionStorage.clear();
+    return new Promise(resolve => {
+      fr.addEventListener('load', () => {
+        waitFor(() => {
+          const b = fr.contentDocument && fr.contentDocument.querySelector('#btn-code-go');
+          return b && typeof b.onclick === 'function' ? b : null;
+        }, 20000).then(resolve);
+      }, { once: true });
+      fr.src = '../cognitive-activity-web/participant.html?t=' + Date.now();
+    });
+  }
+
+  async function login(idNo) {
+    $f('#code-input').value = idNo;
+    $f('#code-input').dispatchEvent(new fr.contentWindow.Event('input'));
+    $f('#btn-code-go').click();
+    return waitFor(() => {
+      const v = viewId();
+      return v === 'view-prefs' || v === 'view-recommend' ? v : null;
+    }, 30000);
+  }
+
+  async function run() {
+    /* ---- 第一次：新身份证，应先进偏好页 ---- */
+    await load();
+    const v1 = await login(ID_B);
+    ok('首次登录进入偏好设置页', v1 === 'view-prefs', '实际 ' + v1);
+
+    $f('#btn-prefs-skip').click();
+    await waitFor(() => viewId() === 'view-recommend');
+    await waitFor(() => $f('#reco-name').textContent !== '—');
+    ok('跳过偏好后进入推荐页', viewId() === 'view-recommend');
+    ok('推荐卡片有任务名（' + $f('#reco-name').textContent + '）', $f('#reco-name').textContent !== '—');
+    ok('首次参与提示语正确', $f('#reco-history').textContent.indexOf('首次') >= 0,
+      $f('#reco-history').textContent);
+
+    /* ---- 退出（顶栏按钮） ---- */
+    $f('#btn-topbar-exit').click();
+    await waitFor(() => $f('#confirm-mask').classList.contains('show'));
+    $f('#confirm-yes').click();
+    await waitFor(() => viewId() === 'view-welcome');
+    ok('顶栏「退出活动」可回到欢迎页', viewId() === 'view-welcome');
+    ok('退出后本机不留身份信息', !fr.contentWindow.sessionStorage.getItem('cog_ctx'));
+    ok('退出后输入框已清空', $f('#code-input').value === '');
+
+    /* ---- 第二次：同一身份证，应直接进推荐页，不再问偏好 ---- */
+    const v2 = await login(ID_B);
+    ok('第二次登录跳过偏好直接进入推荐', v2 === 'view-recommend', '实际 ' + v2);
+    ok('顶栏称谓保持一致', $f('#topbar-who').textContent.indexOf('尾号 ' + ID_B.slice(-4)) >= 0,
+      $f('#topbar-who').textContent + ' / 期望 尾号 ' + ID_B.slice(-4));
+
+    lines.push('');
+    lines.push('RESULT ' + pass + ' passed, ' + fail + ' failed');
+    document.getElementById('out').textContent = lines.join('\n');
+  }
+
+  run().catch(e => {
+    lines.push('EXCEPTION: ' + (e && (e.stack || e.message || e)));
+    document.getElementById('out').textContent = lines.join('\n');
+  });
+})();
+</script>
+</body>
+</html>
