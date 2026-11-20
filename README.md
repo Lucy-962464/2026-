@@ -1,5 +1,15 @@
 # 社区老年人个性化认知活动支持系统
 
+## 在线打开
+
+GitHub Pages 发布后，可以直接从这里打开参与者应用。体验时请使用页面上的「测试演示」虚拟编号入口。
+
+- [打开参与者应用](https://lucy-962464.github.io/2026-/cognitive-activity-web/participant.html)
+- [用虚拟编号体验](https://lucy-962464.github.io/2026-/cognitive-activity-web/participant.html)
+
+自动化端到端测试会创建多个测试账号并写入云端记录，运行方式见下方的开发说明。
+
+
 面向社区日间照料中心老年人的**序列记忆训练** Web 应用。平板优先、电脑兼容，全部界面按 65 岁以上人群的可读性与触控尺寸设计。
 
 参与者完成一次活动的闭环：
