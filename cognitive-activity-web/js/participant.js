@@ -281,8 +281,9 @@
       if (v !== raw) $('#code-input').value = v;
     });
     $('#btn-test-mode').onclick = () => {
+      if (busy) return;
       $('#code-input').value = Identity.randomTestCode();
-      setLoginMsg('已填入虚拟编号「' + $('#code-input').value + '」，点「开始活动」进入本次演示', 'ok');
+      doLogin();
     };
 
     $('#btn-prefs-skip').onclick = () => afterPrefs(null);
@@ -691,9 +692,12 @@
       const attemptId = ctx.attemptId;
       setTimeout(() => {
         if (!ctx || ctx.attemptId !== attemptId || ctx.phase !== 'responding' || ctx.selected.length) return;
-        stage.textContent = '慢慢来，不着急。准备好后可以继续。';
+        const line = ctx.practiceMode
+          ? '“我们先从第一个位置开始吧。你还记得最先看到哪一样吗？”'
+          : '“咱们慢慢来，我等你准备好。”';
+        stage.innerHTML = '<div class="child-hint" role="status"><b>小朋友说</b><p>' + line + '</p></div>';
         api.EventLog.add(attemptId, ctx.participant.id, 'responding', 'hint', {
-          hint_level: 'H1', hint_trigger: 'inactivity', hint_content_id: 'H1-001',
+          hint_level: 'H1', hint_trigger: 'inactivity', hint_content_id: ctx.practiceMode ? 'H1-CHILD-PRACTICE' : 'H1-CHILD-FORMAL',
           hint_stage: 'responding', assisted_completion: false
         });
       }, 15000);
