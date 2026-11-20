@@ -2,6 +2,7 @@
 <html lang="zh-CN">
 <head><meta charset="UTF-8"><title>e2e</title></head>
 <body>
+<button id="run-test" hidden>运行端到端测试</button>
 <pre id="out">E2E running...</pre>
 <iframe id="fr" src="../cognitive-activity-web/participant.html" style="width:1024px;height:768px;"></iframe>
 <script src="../cognitive-activity-web/vendor/index.global.js"></script>
@@ -9,6 +10,13 @@
 <script src="../cognitive-activity-web/js/api.js"></script>
 <script>
 (async () => {
+  if (!['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)) {
+    const run = document.getElementById('run-test');
+    document.getElementById('out').textContent = '运行测试会在云端创建虚拟测试账号和作答记录。';
+    run.hidden = false;
+    await new Promise(resolve => run.addEventListener('click', resolve, { once: true }));
+    run.hidden = true;
+  }
   const out = document.getElementById('out');
   const lines = [];
   const P = [];
