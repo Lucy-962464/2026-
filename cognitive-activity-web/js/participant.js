@@ -18,6 +18,57 @@
   let ctx = null;          // { participant, sessionId, template, reco, sequenceNo, attemptId, phase, practiceDone, selected, helpUsed, nItems, presentMs, retentionMs, refreshCount }
   let gen = 0;             // 计时器代际，防止旧定时器串台
   let busy = false;
+  let api = window.api;
+
+  // 虚拟编号演示使用独立的临时数据，避免向正式后端写入测试记录。
+  function createDemoApi() {
+    const attempts = [];
+    const foods = [
+      ['carrot', '🥕', '胡萝卜'], ['tomato', '🍅', '番茄'],
+      ['potato', '🥔', '土豆'], ['corn', '🌽', '玉米'],
+      ['cucumber', '🥒', '黄瓜'], ['onion', '🧅', '洋葱']
+    ].map(([id, emoji, name]) => ({ id, emoji, name }));
+    function attemptById(id) { return attempts.find(a => a.attempt_id === id); }
+    return {
+      EventLog: {
+        add(id, participantId, phase, type, details) {
+          attemptById(id)?.events.push({ phase, type, details, at: Date.now() });
+        },
+        async flush() {}
+      },
+      async loginOrCreate(code) { return { participant: { id: code, code } }; },
+      async startSession() { return { id: 'demo-session' }; },
+      async endSession() {},
+      async getPreferences() { return null; },
+      async savePreferences() {},
+      async getRecommendation() {
+        return {
+          ok: true, difficulty: 'easy', history_count: 0,
+          template: { id: 'demo-sequence', name: '备菜清单', n_items: 3,
+            description: '看看依次出现的食材，再按顺序选出来。演示记录仅保留于本次页面。',
+            present_ms: 1600, retention_ms: 2000 }
+        };
+      },
+      async createAttempt(sessionId, participantId, templateId, sequenceNo, isPractice, nItems) {
+        const attempt = { ok: true, attempt_id: attempts.length + 1, n_items: nItems,
+          presented_items: shuffle(foods).slice(0, nItems), present_ms: 1600,
+          retention_ms: 2000, is_practice: isPractice, status: 'in_progress', events: [] };
+        attempts.push(attempt);
+        return attempt;
+      },
+      async submitAttempt(id, response) {
+        const attempt = attemptById(id);
+        if (attempt.status !== 'in_progress') return { ok: attempt.status === 'submitted' };
+        attempt.positional_correct = attempt.presented_items.filter((item, i) => item.id === response[i]?.id).length;
+        attempt.total_items = attempt.n_items;
+        attempt.status = 'submitted';
+        return { ok: true };
+      },
+      async interruptAttempt(id) { attemptById(id).status = 'interrupted'; },
+      async submitFeedback() {},
+      async sessionAttempts() { return attempts; }
+    };
+  }
 
   /* ================= 小工具 ================= */
   const $ = (s) => document.querySelector(s);
@@ -48,7 +99,7 @@
   }
 
   function saveCtx() {
-    if (ctx) sessionStorage.setItem(STORAGE_KEY, JSON.stringify(ctx));
+    if (ctx && !ctx.demo) sessionStorage.setItem(STORAGE_KEY, JSON.stringify(ctx));
     else sessionStorage.removeItem(STORAGE_KEY);
   }
   function loadCtx() {
@@ -142,7 +193,7 @@
     });
     $('#btn-test-mode').onclick = () => {
       $('#code-input').value = Identity.randomTestCode();
-      setLoginMsg('已填入虚拟编号「' + $('#code-input').value + '」，点「开始活动」进入', 'ok');
+      setLoginMsg('已填入虚拟编号「' + $('#code-input').value + '」，点「开始活动」进入本次演示', 'ok');
     };
 
     $('#btn-prefs-skip').onclick = () => afterPrefs(null);
@@ -211,6 +262,8 @@
       if (id.error) { setLoginMsg(id.error, 'err'); return; }
 
       // 2) 按编号找回档案；首次参与自动建档
+      const demo = id.authType === 'test' && /^TEST-\d{4}$/i.test(id.code);
+      api = demo ? createDemoApi() : window.api;
       const res = await api.loginOrCreate(id.code, id.authType);
       const p = res.participant;
       if (!p) { setLoginMsg('身份识别失败，请稍后重试', 'err'); return; }
@@ -221,7 +274,7 @@
           label: id.label, authType: id.authType,
           fontSize: 'normal'
         },
-        practiceDone: false, sequenceNo: 0
+        demo, practiceDone: false, sequenceNo: 0
       };
 
       // 3) 开启新会话
@@ -246,7 +299,7 @@
       }
     } catch (e) {
       console.error(e);
-      setLoginMsg('网络出现问题，请稍后再试', 'err');
+      setLoginMsg('暂时无法连接云端服务。可点击下方「测试演示」体验。', 'err');
     } finally {
       busy = false;
     }
