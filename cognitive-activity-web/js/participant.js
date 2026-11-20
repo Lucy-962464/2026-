@@ -150,6 +150,8 @@
     if (ctx && ctx.sessionId && ctx.attemptId &&
         ['prepare', 'presenting', 'retention', 'responding'].includes(ctx.phase)) {
       await recoverFromRefresh();
+    } else if (ctx && ctx.sessionId && ctx.phase === 'practice_complete') {
+      showPracticeChoices();
     } else if (ctx && ctx.sessionId && ctx.phase === 'feedback') {
       showView('feedback');
       renderFeedbackSummary();
@@ -393,6 +395,22 @@
     });
   }
 
+  function showPracticeChoices() {
+    showView('task');
+    $('#respond-area').style.display = 'none';
+    $('#btn-help').style.display = 'none';
+    $('#task-stage').innerHTML =
+      '<p class="tip">练习完成。正式活动共有 3 题。</p>' +
+      '<div class="task-actions"><button class="btn btn-outline" id="practice-again">再练一次</button>' +
+      '<button class="btn btn-primary" id="practice-next">开始正式题</button></div>';
+    $('#practice-again').onclick = startPractice;
+    $('#practice-next').onclick = () => {
+      ctx.practiceDone = true;
+      startQuestion(1);
+    };
+    $('#practice-again').focus();
+  }
+
   /* ================= P05 正式任务 ================= */
   async function startQuestion(seq, isRedo) {
     ctx.practiceMode = false;
@@ -617,14 +635,10 @@
     const stage = $('#task-stage');
 
     if (ctx.practiceMode) {
-      stage.innerHTML =
-        '<div style="font-size:3rem;">👏</div><div class="tip" style="font-size:1.15rem;">练习完成！正式任务马上开始</div>' +
-        '<div class="hint">练习不计入正式记录</div>';
       api.EventLog.flush();
-      await new Promise(r => setTimeout(r, 1800));
-      ctx.practiceMode = false; ctx.practiceDone = true;
-      ctx.sequenceNo = 1; saveCtx();
-      await startQuestion(1);
+      ctx.phase = 'practice_complete';
+      saveCtx();
+      showPracticeChoices();
     } else if (result && result.ok) {
       stage.innerHTML =
         '<div style="font-size:3rem;">✅</div><div class="tip" style="font-size:1.15rem;">已提交，进入下一题</div>';
@@ -687,7 +701,7 @@
     sessionStorage.clear();
     applyFontSize('normal');
     $$('#rating-row .rating-btn').forEach(x => x.classList.remove('on'));
-    $('#btn-finish').disabled = true;
+    $('#btn-finish').disabled = false;
     showView('welcome');
     $('#code-input').value = '';
     setLoginMsg('');
