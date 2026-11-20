@@ -554,6 +554,7 @@
     $('#respond-area').style.display = 'none';
     $('#btn-help').style.display = '';
     const stage = $('#task-stage');
+    stage.classList.remove('kitchen-wait');
     stage.innerHTML = '<div class="tip">正在准备……</div>';
 
     // 建尝试（服务端抽样并保存呈现序列）
@@ -634,9 +635,10 @@
     /* --- 3. 保持间隔（RETENTION） --- */
     ctx.phase = 'retention'; saveCtx();
     api.EventLog.add(ctx.attemptId, ctx.participant.id, 'retention', 'retention_start', { ms: att.retention_ms });
+    stage.classList.add('kitchen-wait');
     stage.innerHTML =
-      '<div class="keep-mind">请稍等一下，马上开始备菜</div>' +
-      '<div class="retention-bar"><i id="ret-bar"></i></div>';
+      '<div class="keep-mind" role="status">食材已经准备好了，请稍等一下。</div>' +
+      '<div class="retention-bar" aria-hidden="true"><i id="ret-bar"></i></div>';
     animateBar('#ret-bar', att.retention_ms, myGen);
     await waitInterruptible(att.retention_ms, myGen);
     if (gen !== myGen) return;
@@ -644,6 +646,7 @@
     /* --- 4. 顺序再现（RESPONDING） --- */
     ctx.phase = 'responding'; saveCtx();
     api.EventLog.add(ctx.attemptId, ctx.participant.id, 'responding', 'respond_start', {});
+    stage.classList.remove('kitchen-wait');
     enterResponding(items);
     busy = false;
   }
