@@ -99,6 +99,8 @@
     if (ctx && ctx.sessionId && ctx.attemptId &&
         ['prepare', 'presenting', 'retention', 'responding'].includes(ctx.phase)) {
       await recoverFromRefresh();
+    } else if (ctx && ctx.sessionId && ctx.phase === 'practice_complete') {
+      showPracticeChoices();
     } else if (ctx && ctx.sessionId && ctx.phase === 'feedback') {
       showView('feedback');
       renderFeedbackSummary();
@@ -110,13 +112,13 @@
   }
 
   /* 刷新恢复：中断未完成的那次尝试，重新出同一题 */
-  async function recoverFromRefresh() {
+  async function recoverFromRefresh(reason = 'refresh') {
     const oldAttemptId = ctx.attemptId;
     const wasPractice = ctx.phase === 'practice' || ctx.practiceMode;
     try {
-      await api.interruptAttempt(oldAttemptId, 'refresh');
+      await api.interruptAttempt(oldAttemptId, reason);
     } catch (e) { /* 尽力而为 */ }
-    toast('刚才的题目因页面刷新已中断（不计为错误），现在重新开始这一题', 4200);
+    if (reason === 'refresh') toast('刚才的题目因页面刷新已中断，不计为错误。', 4200);
     if (wasPractice) {
       await startPractice();
     } else {
@@ -182,7 +184,6 @@
       b.classList.add('on');
       try {
         await api.submitFeedback(ctx.sessionId, ctx.participant.id, b.dataset.rating);
-        $('#btn-finish').disabled = false;
         toast('感谢您的反馈！');
       } catch (e) {
         toast('反馈暂时没有保存成功，请再点一次', 3000);
@@ -338,6 +339,21 @@
       title: ctx.template.name,
       sub: '练习 · 不计成绩'
     });
+  }
+
+  function showPracticeChoices() {
+    showView('task');
+    $('#respond-area').style.display = 'none';
+    $('#btn-help').style.display = 'none';
+    $('#task-stage').innerHTML = '<p class="tip">练习完成，可以再练一次。</p>' +
+      '<button class="btn btn-outline" id="practice-again">再练一次</button> ' +
+      '<button class="btn btn-primary" id="practice-next">我准备好了，开始正式题</button>';
+    $('#practice-again').onclick = startPractice;
+    $('#practice-next').onclick = () => {
+      ctx.practiceDone = true;
+      startQuestion(1);
+    };
+    $('#practice-again').focus();
   }
 
   /* ================= P05 正式任务 ================= */
@@ -565,13 +581,11 @@
 
     if (ctx.practiceMode) {
       stage.innerHTML =
-        '<div style="font-size:3rem;">👏</div><div class="tip" style="font-size:1.15rem;">练习完成！正式任务马上开始</div>' +
+        '<div style="font-size:3rem;">👏</div><div class="tip" style="font-size:1.15rem;">练习完成</div>' +
         '<div class="hint">练习不计入正式记录</div>';
       api.EventLog.flush();
-      await new Promise(r => setTimeout(r, 1800));
-      ctx.practiceMode = false; ctx.practiceDone = true;
-      ctx.sequenceNo = 1; saveCtx();
-      await startQuestion(1);
+      ctx.phase = 'practice_complete'; saveCtx();
+      showPracticeChoices();
     } else if (result && result.ok) {
       stage.innerHTML =
         '<div style="font-size:3rem;">✅</div><div class="tip" style="font-size:1.15rem;">已提交，进入下一题</div>';
@@ -626,15 +640,15 @@
   }
 
   async function doFinish() {
+    if (!ctx || busy) return;
+    busy = true;
     // 结束会话 → 冲刷日志 → 清除本机信息
     try { await api.endSession(ctx.sessionId); } catch (e) { /* 尽力而为 */ }
     try { await api.EventLog.flush(); } catch (e) { }
-    const code = ctx.participant.code;
     ctx = null; saveCtx();
-    sessionStorage.clear();
+    busy = false;
     applyFontSize('normal');
     $$('#rating-row .rating-btn').forEach(x => x.classList.remove('on'));
-    $('#btn-finish').disabled = true;
     showView('welcome');
     $('#code-input').value = '';
     setLoginMsg('');
@@ -657,7 +671,7 @@
       try { await api.EventLog.flush(); } catch (e) { }
     }
     ctx = null; saveCtx();
-    sessionStorage.clear();
+    busy = false;
     applyFontSize('normal');
     showView('welcome');
     $('#code-input').value = '';
@@ -677,6 +691,17 @@
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden' && ctx && ctx.attemptId) {
       api.EventLog.add(ctx.attemptId, ctx.participant.id, ctx.phase, 'page_hidden', {});
+      if (['prepare', 'presenting', 'retention'].includes(ctx.phase)) {
+        gen++;
+        waitInterruptible._cancel?.();
+        $('#btn-help').style.display = 'none';
+        $('#task-stage').innerHTML = '<p class="tip">页面离开后，本题已暂停。请重新开始这一题。</p>' +
+          '<button class="btn btn-primary" id="restart-trial">重新准备</button>';
+        $('#restart-trial').onclick = async (event) => {
+          event.currentTarget.disabled = true;
+          await recoverFromRefresh('page_hidden');
+        };
+      }
     }
   });
   window.addEventListener('pagehide', () => {
