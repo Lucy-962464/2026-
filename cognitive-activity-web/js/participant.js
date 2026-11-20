@@ -24,10 +24,91 @@
   function createDemoApi() {
     const attempts = [];
     const foods = [
-      ['carrot', '🥕', '胡萝卜'], ['tomato', '🍅', '番茄'],
-      ['potato', '🥔', '土豆'], ['corn', '🌽', '玉米'],
-      ['cucumber', '🥒', '黄瓜'], ['onion', '🧅', '洋葱']
-    ].map(([id, emoji, name]) => ({ id, emoji, name }));
+      {
+        "id": "carrot",
+        "name": "胡萝卜",
+        "aliases": [
+          "红萝卜"
+        ],
+        "photo": "https://images.openai.com/static-rsc-4/jzyVFWfKeIt4IuFAQWNA5HLovtyC145NjXvt5WyUrCF89EGUH_SaVmdSxei6zfRBlFhBZHfCV18aGUTCUXE6daBMlFhZjUv_OTuZfctITYzTzNU32H5ZuFt-ChNzWLagqqEnpHzbR6bJ9TOZqeq6TED9RXDx7KVty07Kg5WHZ4SWQF-tLEzFSw8Y18RZW9iC?purpose=inline",
+        "version": "candidate-1",
+        "familiarity": null,
+        "recognition": null
+      },
+      {
+        "id": "tomato",
+        "name": "番茄",
+        "aliases": [
+          "西红柿"
+        ],
+        "photo": "https://images.openai.com/static-rsc-4/Dg_dV8vojNOrBxbnpM9iyu9_8ZnFUMSVx9SxE-ktO9VsrniIfwQ3CPiNa9HnENDLspdciEOsxNPSErQ3achFtvm0qmuUiRLjkY1R0if3-AXb-9qu5A6JfQbULt5vLvVC0DAxbzi5CsbF0_5m27Hcl8taBHM8MljP9JTQIw2r4Xxbd6OohRl_mIKx5PP8sVCd?purpose=inline",
+        "version": "candidate-1",
+        "familiarity": null,
+        "recognition": null
+      },
+      {
+        "id": "potato",
+        "name": "土豆",
+        "aliases": [
+          "马铃薯"
+        ],
+        "photo": "https://images.openai.com/static-rsc-4/F4gNpRVHBMP1vAVc3uSZzj64Fxm9uVQNCg8REKvVomaDc5iLpwVOicWxJlW_DosI4JXIZJQgVPAid298ZJqUPMIgUBYuwzv10c01C-jtTHUm7aFy7et078ThkhV6OrqkLLf4tNM487QtyyBWu3GcKM2HdsstbxuSXfA0JwHfGI0?purpose=inline",
+        "version": "candidate-1",
+        "familiarity": null,
+        "recognition": null
+      },
+      {
+        "id": "cucumber",
+        "name": "黄瓜",
+        "aliases": [],
+        "photo": "https://images.openai.com/static-rsc-4/qjSZVhYRx-rKx4Gy_IxPvXNwmelCJ-EhjtqeJwCJykBFsEGbxqwz0DTwee1MkYbMWdMzFbU3DzDjpSou2U9_rfGsc2okJTZHKYtbz7qVRonS7I5VIVnz1c5LbQx4iR4cONFxnKGdYeaqMfPgiFgKPeDTk-AQ-Zj8prOw32QhnuM?purpose=inline",
+        "version": "candidate-1",
+        "familiarity": null,
+        "recognition": null
+      },
+      {
+        "id": "corn",
+        "name": "玉米",
+        "aliases": [
+          "苞米"
+        ],
+        "photo": "https://images.openai.com/static-rsc-4/qcX3j06S0ljrmlVJh0lM7o8T2kCLrc_YxfPB_GPoT2aNY2ernw4P7w7v8SRxEh_NZTfYhgygwMDVPQQYY8-PARAGoXWPIAttdYzJEikNPOJyY9a8AJZj6pTPlULeikqjWp2VPJ8b8SoEdRpOLysyQQJWsbsfQ1xIfsGzKg2wjrWF3eOfM6DZOF6CzbF2TnNe?purpose=inline",
+        "version": "candidate-1",
+        "familiarity": null,
+        "recognition": null
+      },
+      {
+        "id": "eggplant",
+        "name": "茄子",
+        "aliases": [],
+        "photo": "https://images.openai.com/static-rsc-4/RWMNrBFLwSHBcsNQBSAHNJn9jpuYaWRfeNZD5pAGwg-OdPfK1owMPHUBUCwPQOj0ywASd6uYuK5QFF7zZLSDlGgqkbyE_1tNy9BHpm72_vh8QkWIm3jxZbnkaRU1RXwOOkKiMo1Kj4AnmskYs2T4E9pSp19dsPsjFI1zz9621Ps?purpose=inline",
+        "version": "candidate-1",
+        "familiarity": null,
+        "recognition": null
+      },
+      {
+        "id": "cabbage",
+        "name": "白菜",
+        "aliases": [],
+        "photo": "https://images.openai.com/static-rsc-4/LHPYPTjixPOKgc1D96Fnk0GldwlgQR1jokO-m9q9jd_NdwCczTtkwe2yKwn1yyn6RK8KnsxuOAoqS4Vb2JouYpxTczSELRo7c6FZ5f0P9G1Y_TMcd_0xoFVnr-tJZSPe4wnhJ0__k25GwPCoE9z__-R2CrLjIj1f1N1BBdb0j3jc-cwTE75_sP53BNGBI8o7?purpose=inline",
+        "version": "candidate-1",
+        "familiarity": null,
+        "recognition": null
+      },
+      {
+        "id": "broccoli",
+        "name": "西兰花",
+        "aliases": [
+          "青花菜"
+        ],
+        "photo": "https://images.openai.com/static-rsc-4/RC1xhNB2-2uiahL_VZwcgOQe38vBtRdmxWi3B9-N9QlXMd0_m5y7_aEgrfFdrqOYOu-HXz8rGH0LIwmw4uXAwCDv6BLHCUXy9zIUjospJnC05-28IsolXWj_cO-6qc0kkJz23MuD_1DVdyiJHhrxDuhF5UJRHcbGNG6-QeMJdAI?purpose=inline",
+        "version": "candidate-1",
+        "familiarity": null,
+        "recognition": null
+      }
+    ];
+    const timing = { present_ms: 1600, gap_ms: 250, retention_ms: 2000 };
+    const contextId = 'CTX-KITCHEN-001';
     function attemptById(id) { return attempts.find(a => a.attempt_id === id); }
     return {
       EventLog: {
@@ -41,18 +122,19 @@
       async endSession() {},
       async getPreferences() { return null; },
       async savePreferences() {},
-      async getRecommendation() {
+      async getRecommendation(participantId, previousLength) {
+        const n = previousLength ? (previousLength === 4 ? 2 : previousLength + 1) : 2;
         return {
-          ok: true, difficulty: 'easy', history_count: 0,
-          template: { id: 'demo-sequence', name: '备菜清单', n_items: 3,
+          ok: true, difficulty: ['easy', 'medium', 'hard'][n - 2], history_count: 0,
+          template: { id: n, task_id: 'MEM-SEQ-001', version: '0.4-demo', name: '厨房小帮手：准备晚餐', n_items: n,
             description: '看看依次出现的食材，再按顺序选出来。演示记录仅保留于本次页面。',
-            present_ms: 1600, retention_ms: 2000 }
+            ...timing }
         };
       },
       async createAttempt(sessionId, participantId, templateId, sequenceNo, isPractice, nItems) {
         const attempt = { ok: true, attempt_id: attempts.length + 1, n_items: nItems,
-          presented_items: shuffle(foods).slice(0, nItems), present_ms: 1600,
-          retention_ms: 2000, is_practice: isPractice, status: 'in_progress', events: [] };
+          presented_items: shuffle(foods).slice(0, nItems), ...timing,
+          contextId, templateVersion: '0.4-demo', sequenceNo, is_practice: isPractice, status: 'in_progress', events: [] };
         attempts.push(attempt);
         return attempt;
       },
@@ -61,6 +143,8 @@
         if (attempt.status !== 'in_progress') return { ok: attempt.status === 'submitted' };
         attempt.positional_correct = attempt.presented_items.filter((item, i) => item.id === response[i]?.id).length;
         attempt.total_items = attempt.n_items;
+        attempt.full_correct = attempt.positional_correct === attempt.total_items;
+        attempt.response_items = response.map(item => item.id);
         attempt.status = 'submitted';
         return { ok: true };
       },
@@ -360,6 +444,7 @@
     ctx.recoMeta = { history_count: r.history_count, accuracy: r.accuracy, difficulty: r.difficulty };
     saveCtx();
 
+    $('#btn-reco-change').textContent = ctx.demo ? '切换食材数量' : '换一项材料';
     $('#reco-name').textContent = r.template.name;
     $('#reco-desc').textContent = r.template.description || '';
     $('#reco-items').textContent = r.template.n_items + ' 个';
@@ -381,6 +466,7 @@
 
   /* ================= P04 指导语与练习 ================= */
   function showInstruction() {
+    $('#kitchen-story').hidden = !ctx.demo;
     $('#instr-text').textContent = ctx.template.instruction || '请记住依次出现的物品顺序，再按顺序点选。';
     showView('instruction');
   }
@@ -467,6 +553,23 @@
       { is_practice: !!opts.isPractice, n_items: att.n_items, sequence_no: ctx.sequenceNo || 0 });
 
     const items = att.presented_items;
+    if (ctx.demo) {
+      try {
+        await Promise.all(items.map(item => {
+          const image = new Image();
+          image.src = item.photo;
+          return image.decode();
+        }));
+      } catch {
+        if (gen !== myGen) return;
+        await api.interruptAttempt(att.attempt_id, 'image_load_failed');
+        stage.innerHTML = '<p>食材照片暂时无法加载。</p><button class="btn btn-primary" id="retry-photos">重新加载图片</button>';
+        $('#retry-photos').onclick = () => runAttempt(opts);
+        busy = false;
+        return;
+      }
+      if (gen !== myGen) return;
+    }
 
     /* --- 1. 准备 --- */
     stage.innerHTML = '<div class="tip">请准备，物品马上出现</div>';
@@ -482,9 +585,14 @@
       if (gen !== myGen) return;
       stage.innerHTML =
         '<div class="pos-label">第 ' + (i + 1) + ' 个</div>' +
-        '<div class="item-big">' + escapeEmoji(items[i].emoji) + '</div>' +
-        '<div class="tip">' + escapeHtml(items[i].name) + '</div>';
+        (ctx.demo ? foodVisual(items[i], false) : '<div class="item-big">' +
+          escapeEmoji(items[i].emoji) + '</div><div class="tip">' + escapeHtml(items[i].name) + '</div>');
       await waitInterruptible(att.present_ms, myGen);
+      if (gen !== myGen) return;
+      if (att.gap_ms && i < items.length - 1) {
+        stage.innerHTML = '';
+        await waitInterruptible(att.gap_ms, myGen);
+      }
     }
     if (gen !== myGen) return;
     api.EventLog.add(ctx.attemptId, ctx.participant.id, 'presenting', 'present_end', {});
@@ -494,7 +602,7 @@
     ctx.phase = 'retention'; saveCtx();
     api.EventLog.add(ctx.attemptId, ctx.participant.id, 'retention', 'retention_start', { ms: att.retention_ms });
     stage.innerHTML =
-      '<div class="keep-mind">🧠 请在心里回想刚才的顺序</div>' +
+      '<div class="keep-mind">请稍等一下，马上开始备菜</div>' +
       '<div class="retention-bar"><i id="ret-bar"></i></div>';
     animateBar('#ret-bar', att.retention_ms, myGen);
     await waitInterruptible(att.retention_ms, myGen);
@@ -527,6 +635,12 @@
     requestAnimationFrame(step);
   }
 
+  function foodVisual(item, label = true) {
+    if (!item.photo) return '<span class="em">' + escapeEmoji(item.emoji) + '</span>';
+    return '<img class="food-photo" src="' + escapeHtml(item.photo) + '" alt="' +
+      (label ? '' : '食材照片') + '">';
+  }
+
   function enterResponding(items) {
     const stage = $('#task-stage');
     stage.innerHTML = '<div class="tip">请按刚才出现的顺序，点击下方物品</div>';
@@ -534,6 +648,20 @@
 
     // 选项 = 呈现的物品打乱
     ctx.options = shuffle(items);
+    if (ctx.demo && ctx.options.every((item, i) => item.id === items[i].id)) {
+      ctx.options.push(ctx.options.shift());
+    }
+    if (ctx.demo) {
+      const attemptId = ctx.attemptId;
+      setTimeout(() => {
+        if (!ctx || ctx.attemptId !== attemptId || ctx.phase !== 'responding' || ctx.selected.length) return;
+        stage.textContent = '慢慢来，不着急。准备好后可以继续。';
+        api.EventLog.add(attemptId, ctx.participant.id, 'responding', 'hint', {
+          hint_level: 'H1', hint_trigger: 'inactivity', hint_content_id: 'H1-001',
+          hint_stage: 'responding', assisted_completion: false
+        });
+      }, 15000);
+    }
     renderSlots();
     renderGrid();
     updateActions();
@@ -547,7 +675,7 @@
       s.className = 'slot' + (ctx.selected[i] ? ' filled' : '');
       const it = ctx.selected[i];
       s.innerHTML = it
-        ? '<span class="em">' + escapeEmoji(it.emoji) + '</span><span class="nm">' + escapeHtml(it.name) + '</span>'
+        ? foodVisual(it) + '<span class="nm">' + escapeHtml(it.name) + '</span>'
         : '<span class="no">第 ' + (i + 1) + ' 个</span>';
       slots.appendChild(s);
     }
@@ -561,7 +689,7 @@
       b.className = 'item-card';
       // 每个物品只出现一次，已选入槽位的在网格中禁用
       b.disabled = ctx.selected.some(s => s.id === it.id);
-      b.innerHTML = '<span class="em">' + escapeEmoji(it.emoji) + '</span><span>' + escapeHtml(it.name) + '</span>';
+      b.innerHTML = foodVisual(it) + '<span>' + escapeHtml(it.name) + '</span>';
       b.onclick = () => doSelect(it);
       grid.appendChild(b);
     });
@@ -666,6 +794,7 @@
   /* ================= P06 完成反馈 ================= */
   async function enterFeedback() {
     ctx.phase = 'feedback'; saveCtx();
+    $('#kitchen-finish').hidden = !ctx.demo;
     showView('feedback');
     renderFeedbackSummary();
   }
@@ -681,6 +810,7 @@
       const elapsed = ctx.sessionStartedAt ? Math.round((Date.now() - ctx.sessionStartedAt) / 1000) : null;
       box.innerHTML =
         stat(done + ' / ' + formal.length, '完成题目') +
+        (ctx.demo && done ? stat(formal.filter(a => a.full_correct).length + ' / ' + done, '完整顺序正确') : '') +
         stat(tot > 0 ? Math.round(pos / tot * 100) + '%' : '—', '顺序正确率') +
         stat(elapsed != null ? fmtTime(elapsed) : '—', '本次用时');
     } catch (e) {
