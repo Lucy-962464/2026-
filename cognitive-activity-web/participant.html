@@ -12,6 +12,15 @@
 .slot .food-photo{height:68px}
 #slots{background:#eee3d1;border-radius:16px;padding:12px}
 @media(max-width:850px){#slots .slot{flex:1 1 105px;max-width:150px;min-height:85px}.item-grid{grid-template-columns:repeat(auto-fit,minmax(112px,1fr))}}
+.kitchen-welcome{position:relative;isolation:isolate;display:grid;align-items:end;overflow:hidden;background:#244136;color:white;border-radius:20px;min-height:clamp(180px,29vh,290px);text-align:left}
+.kitchen-welcome img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-2}
+.kitchen-welcome::after{content:"";position:absolute;inset:0;background:linear-gradient(0deg,rgba(16,36,27,.95),rgba(16,36,27,.1));z-index:-1}
+.kitchen-welcome-copy{padding:clamp(18px,4vw,36px)}
+#view-welcome .kitchen-welcome h1{font-size:clamp(1.5rem,4vw,2.2rem);color:white}
+#view-welcome .kitchen-welcome p{color:white;margin:0}
+.kitchen-story-layout{display:grid;gap:1.2rem;align-items:center}
+.kitchen-story-layout blockquote{margin:.65rem 0;padding:.7rem .9rem;background:#eef5ed;border-radius:10px}
+@media(min-width:900px){.kitchen-story-layout{grid-template-columns:1fr 1fr}.kitchen-story-layout .kitchen-photo{max-height:none;aspect-ratio:4/3}}
 </style></head>
 <body>
 
@@ -26,9 +35,10 @@
   <!-- ============ P01 欢迎与身份识别 ============ -->
   <section class="view" id="view-welcome">
     <div class="welcome-head">
-      <div class="logo">🧠</div>
-      <h1>社区老年人个性化认知活动支持系统</h1>
-      <p>今天的脑力小活动，现在开始</p>
+      <div class="kitchen-welcome">
+        <img src="https://images.openai.com/static-rsc-4/KyJrQAz8D_0rbdOUj-hV6oG1_mE4QRbmJ9ZjDzT8rQ36a6RhMGbnvNItsYapLBVdx1LT4i1tJA60fj2ah2wtW4FbPMM3rsECGZA5onqoTvfmiCRCftd5UpglHFj6Z_XgN6trdPCdM9zbkytLS3lw63Xck_IG9z5S6cgqe51MSZk?purpose=inline" alt="" fetchpriority="high">
+        <div class="kitchen-welcome-copy"><h1>欢迎来到厨房！</h1><p>今天，我们一起准备晚餐吧。</p></div>
+      </div>
     </div>
     <div class="card login-card">
       <label class="login-label" for="code-input">请输入身份证号</label>
@@ -41,13 +51,27 @@
 
     <div class="test-entry">
       <button class="link-btn" id="btn-test-mode">测试演示 · 使用虚拟编号</button>
-      <p class="privacy-note center">虚拟编号演示 · 本次作答仅保留在当前页面（厨房任务 V0.4）</p>
+      <p class="privacy-note center">虚拟编号演示 · 本次作答仅保留在当前页面（厨房场景体验版）</p>
     </div>
 
     <p class="hint center" style="margin-top:1.1rem;">输入有困难？可以请现场工作人员协助操作。</p>
   </section>
 
-  <!-- ============ P02 初始偏好与辅助设置 ============ -->
+  <section class="view" id="view-kitchen-story" aria-labelledby="kitchen-story-title">
+    <div class="card kitchen-story-layout">
+      <img class="kitchen-photo" src="https://images.openai.com/static-rsc-4/VCT71BIRnIug_ZAOh4-SAJE5YKuPHVe3lb3y2CN9VGmTNXEAidGnTKXoQkFfoV_IU6R4Q7AYmu00AkBcZF7HpDf5wMklqzDLL6fwZcVrMrHabYr84rLMGdbouipzGMSTWrmICBbSCd7X5PHGnlxiy-oDseWB2x53INYmkF8gQIA?purpose=inline" alt="孩子和家人一起准备食材" loading="lazy">
+      <div>
+        <h2 id="kitchen-story-title" tabindex="-1">小朋友放学回家啦！</h2>
+        <p>小朋友来到厨房，开心地说：</p>
+        <blockquote>“今天学习了一天，有点饿啦！我们一起准备晚餐吧！”</blockquote>
+        <p>请帮忙记住几样食材，等一会儿再按出现的顺序把它们放进备菜区。</p>
+        <button class="btn btn-primary btn-lg" id="btn-story-ready">我准备好了</button>
+        <p id="story-status" role="status"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 初始偏好与辅助设置 ============ -->
   <section class="view" id="view-prefs">
     <div class="card">
       <h2 style="margin-bottom:0.3rem;">先简单了解一下您</h2>
@@ -99,7 +123,7 @@
   <section class="view" id="view-instruction">
     <div class="card">
       <h2 style="margin-bottom:0.4rem;">怎么做这个活动？</h2>
-      <section id="kitchen-story" hidden><img class="kitchen-photo" src="https://images.openai.com/static-rsc-4/eVqOpOMe6K3rxfuqOLMeALh-m8C9vJJjZ7ySfg8niAXUr378weL0f6Ouil8iCNFSczaRYJW-eCdj5bJDSXV59ziapTFk28R5TPnPK47_1Mf7Edzwi23KXRNZO8jhGdBZ2nx058Xj32S0qPu-OIwdHHQDSKYPsqAYpuIeffsc9Qarn6t100dCbKLuD7OZI7WV?purpose=inline" alt="家人在厨房准备晚餐" loading="lazy"><h3>今天一起准备晚餐</h3><p>小朋友放学回到家，想和家人一起做晚餐。请帮忙记住食材出现的顺序，稍后依次把它们放入备菜区。</p></section>
+      
       <p class="muted" id="instr-text" style="font-size:1.05rem;"></p>
       <div class="instr-steps">
         <div class="instr-step">
@@ -216,6 +240,6 @@
 <script src="js/config.js"></script>
 <script src="js/identity.js"></script>
 <script src="js/api.js"></script>
-<script src="js/participant.js?v=kitchen-04"></script>
+<script src="js/participant.js?v=kitchen-story-1"></script>
 </body>
 </html>
