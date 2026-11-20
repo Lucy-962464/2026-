@@ -7,6 +7,7 @@
   const PRACTICE_ITEMS = 2;            // 练习题物品数（少于正式题）
   const THEMES = ['日常饮食', '家庭生活', '自然植物', '传统文化', '运动健身', '音乐戏曲', '职业回忆', '养生保健'];
   const STORAGE_KEY = 'cog_ctx';
+  const KITCHEN_STORY_VERSION = 'CTX-KITCHEN-001/story-1';
 
   /* 正式任务状态机：
      READY → INSTRUCTION → PRACTICE → PREPARE → PRESENTING → RETENTION
@@ -234,6 +235,8 @@
     if (ctx && ctx.sessionId && ctx.attemptId &&
         ['prepare', 'presenting', 'retention', 'responding'].includes(ctx.phase)) {
       await recoverFromRefresh();
+    } else if (ctx && ctx.sessionId && ctx.phase === 'kitchen_story') {
+      showKitchenStory();
     } else if (ctx && ctx.sessionId && ctx.phase === 'practice_complete') {
       showPracticeChoices();
     } else if (ctx && ctx.sessionId && ctx.phase === 'feedback') {
@@ -290,6 +293,7 @@
       afterPrefs({ themes, font_size: fs, need_help: help });
     };
 
+    $('#btn-story-ready').onclick = finishKitchenStory;
     $('#btn-reco-start').onclick = () => showInstruction();
     $('#btn-reco-change').onclick = () => loadRecommendation(ctx.template ? ctx.template.id : null);
 
@@ -372,8 +376,34 @@
       $('#code-input').value = '';
       setLoginMsg('');
 
-      // 4) 老参与者直接进入推荐；新参与者先填偏好
-      const prefs = await api.getPreferences(p.id);
+      showKitchenStory();
+    } catch (e) {
+      console.error(e);
+      setLoginMsg('暂时无法连接云端服务。可点击下方「测试演示」体验。', 'err');
+    } finally {
+      busy = false;
+    }
+  }
+
+  function showKitchenStory() {
+    ctx.phase = 'kitchen_story';
+    ctx.story = ctx.story || { version: KITCHEN_STORY_VERSION, enteredAt: Date.now(), completedAt: null };
+    saveCtx();
+    showView('kitchen-story');
+    $('#kitchen-story-title').focus();
+  }
+
+  async function finishKitchenStory() {
+    if (busy || ctx?.phase !== 'kitchen_story') return;
+    busy = true;
+    $('#btn-story-ready').disabled = true;
+    $('#story-status').textContent = '';
+    ctx.story.completedAt ??= Date.now();
+    saveCtx();
+    const activeContext = ctx;
+    try {
+      const prefs = await api.getPreferences(ctx.participant.id);
+      if (ctx !== activeContext) return;
       if (prefs) {
         ctx.participant.fontSize = prefs.font_size;
         applyFontSize(prefs.font_size);
@@ -385,8 +415,12 @@
       }
     } catch (e) {
       console.error(e);
-      setLoginMsg('暂时无法连接云端服务。可点击下方「测试演示」体验。', 'err');
+      if (ctx === activeContext) {
+        showKitchenStory();
+        $('#story-status').textContent = '暂时无法继续，请再试一次。';
+      }
     } finally {
+      $('#btn-story-ready').disabled = false;
       busy = false;
     }
   }
@@ -466,7 +500,6 @@
 
   /* ================= P04 指导语与练习 ================= */
   function showInstruction() {
-    $('#kitchen-story').hidden = !ctx.demo;
     $('#instr-text').textContent = ctx.template.instruction || '请记住依次出现的物品顺序，再按顺序点选。';
     showView('instruction');
   }
