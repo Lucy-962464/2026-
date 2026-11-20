@@ -5,7 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>认知活动 · 参与者端</title>
 <link rel="stylesheet" href="css/style.css">
-</head>
+<style>
+.kitchen-photo{display:block;width:100%;max-height:220px;object-fit:cover;border-radius:14px}
+.food-photo{display:block;width:100%;height:84px;object-fit:contain;background:white;border-radius:8px}
+.stage>.food-photo{width:min(78vw,300px);height:220px}
+.slot .food-photo{height:68px}
+#slots{background:#eee3d1;border-radius:16px;padding:12px}
+@media(max-width:850px){#slots .slot{flex:1 1 105px;max-width:150px;min-height:85px}.item-grid{grid-template-columns:repeat(auto-fit,minmax(112px,1fr))}}
+</style></head>
 <body>
 
 <!-- 顶部小条（欢迎页不显示） -->
@@ -34,7 +41,7 @@
 
     <div class="test-entry">
       <button class="link-btn" id="btn-test-mode">测试演示 · 使用虚拟编号</button>
-      <p class="privacy-note center">虚拟编号演示 · 本次作答仅保留在当前页面（演示版 3）</p>
+      <p class="privacy-note center">虚拟编号演示 · 本次作答仅保留在当前页面（厨房任务 V0.4）</p>
     </div>
 
     <p class="hint center" style="margin-top:1.1rem;">输入有困难？可以请现场工作人员协助操作。</p>
@@ -92,6 +99,7 @@
   <section class="view" id="view-instruction">
     <div class="card">
       <h2 style="margin-bottom:0.4rem;">怎么做这个活动？</h2>
+      <section id="kitchen-story" hidden><img class="kitchen-photo" src="https://images.openai.com/static-rsc-4/eVqOpOMe6K3rxfuqOLMeALh-m8C9vJJjZ7ySfg8niAXUr378weL0f6Ouil8iCNFSczaRYJW-eCdj5bJDSXV59ziapTFk28R5TPnPK47_1Mf7Edzwi23KXRNZO8jhGdBZ2nx058Xj32S0qPu-OIwdHHQDSKYPsqAYpuIeffsc9Qarn6t100dCbKLuD7OZI7WV?purpose=inline" alt="家人在厨房准备晚餐" loading="lazy"><h3>今天一起准备晚餐</h3><p>小朋友放学回到家，想和家人一起做晚餐。请帮忙记住食材出现的顺序，稍后依次把它们放入备菜区。</p></section>
       <p class="muted" id="instr-text" style="font-size:1.05rem;"></p>
       <div class="instr-steps">
         <div class="instr-step">
@@ -134,7 +142,7 @@
 
       <div id="respond-area" style="display:none;">
         <p class="center" style="margin-bottom:0.9rem; font-weight:700;">请按刚才出现的顺序选择物品</p>
-        <div class="slots" id="slots"></div>
+        <h3>我的备菜区</h3><div class="slots" id="slots"></div><h3>选择食材</h3>
         <div class="item-grid" id="item-grid"></div>
         <div class="task-actions">
           <button class="btn btn-ghost" id="btn-undo">↩️ 撤销上一步</button>
@@ -157,7 +165,7 @@
       <h2 style="margin:0.6rem 0 0.3rem;">本次活动已完成</h2>
       <p class="muted">感谢您的参与！您的记录已保存，下次再来会接着上次的进展。</p>
 
-      <div class="fb-summary" id="fb-summary"></div>
+      <p id="kitchen-finish" hidden>备菜完成，家人可以一起准备晚餐了。</p><div class="fb-summary" id="fb-summary"></div>
 
       <div class="label center" style="text-align:center;">今天的活动感觉怎么样？</div>
       <div class="rating-row" id="rating-row">
@@ -208,6 +216,6 @@
 <script src="js/config.js"></script>
 <script src="js/identity.js"></script>
 <script src="js/api.js"></script>
-<script src="js/participant.js?v=practice-flow-3"></script>
+<script src="js/participant.js?v=kitchen-04"></script>
 </body>
 </html>
