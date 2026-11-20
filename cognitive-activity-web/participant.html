@@ -12,9 +12,20 @@
 .slot .food-photo{height:68px}
 #slots{background:#eee3d1;border-radius:16px;padding:12px}
 @media(max-width:850px){#slots .slot{flex:1 1 105px;max-width:150px;min-height:85px}.item-grid{grid-template-columns:repeat(auto-fit,minmax(112px,1fr))}}
-.kitchen-welcome{position:relative;isolation:isolate;display:grid;align-items:end;overflow:hidden;background:#244136;color:white;border-radius:20px;min-height:clamp(180px,29vh,290px);text-align:left}
-.kitchen-welcome img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-2}
-.kitchen-welcome::after{content:"";position:absolute;inset:0;background:linear-gradient(0deg,rgba(16,36,27,.95),rgba(16,36,27,.1));z-index:-1}
+.kitchen-welcome{color:white;text-align:center}
+body:has(#view-welcome.active),body:has(#view-task.active){background:#263b31}
+body:has(#view-welcome.active)::before,body:has(#view-task.active)::before{content:"";position:fixed;inset:0;pointer-events:none;background-image:linear-gradient(rgba(18,33,27,.64),rgba(18,33,27,.72)),url("https://images.openai.com/static-rsc-4/KyJrQAz8D_0rbdOUj-hV6oG1_mE4QRbmJ9ZjDzT8rQ36a6RhMGbnvNItsYapLBVdx1LT4i1tJA60fj2ah2wtW4FbPMM3rsECGZA5onqoTvfmiCRCftd5UpglHFj6Z_XgN6trdPCdM9zbkytLS3lw63Xck_IG9z5S6cgqe51MSZk?purpose=inline"),url("https://images.openai.com/static-rsc-4/KyJrQAz8D_0rbdOUj-hV6oG1_mE4QRbmJ9ZjDzT8rQ36a6RhMGbnvNItsYapLBVdx1LT4i1tJA60fj2ah2wtW4FbPMM3rsECGZA5onqoTvfmiCRCftd5UpglHFj6Z_XgN6trdPCdM9zbkytLS3lw63Xck_IG9z5S6cgqe51MSZk?purpose=inline");background-position:center;background-repeat:no-repeat;background-size:cover,contain,cover}
+body:has(#view-task.active)::before{background-image:linear-gradient(rgba(22,31,27,.82),rgba(22,31,27,.86)),url("https://images.openai.com/static-rsc-4/ppERMQLYm-s7yWbpIcKhwYX3uukfIM0hUdSr6xAq_lU__y6aRz1OjqJgMX7OPw9nS3vk0qJsjiwjkmPdgypaRG1tTn-tBHR5KyKosOU5ayfXRrOdRwH0_onMPEJqNrfDqVGKJgjdd1nTI_i0n14nlf2jdsuKLW_Yy0MFKwjwln59Ng2XLSE54wSI6PJA4CPE?purpose=inline"),url("https://images.openai.com/static-rsc-4/ppERMQLYm-s7yWbpIcKhwYX3uukfIM0hUdSr6xAq_lU__y6aRz1OjqJgMX7OPw9nS3vk0qJsjiwjkmPdgypaRG1tTn-tBHR5KyKosOU5ayfXRrOdRwH0_onMPEJqNrfDqVGKJgjdd1nTI_i0n14nlf2jdsuKLW_Yy0MFKwjwln59Ng2XLSE54wSI6PJA4CPE?purpose=inline")}
+body:has(#view-welcome.active) .p-wrap,body:has(#view-task.active) .p-wrap{position:relative}
+#view-welcome .login-card,#view-welcome .test-entry{background:rgba(255,255,255,.96);border-radius:16px}
+#view-welcome .test-entry{width:fit-content;margin:1rem auto 0;padding:.55rem 1rem}
+#view-welcome>.hint{color:white}
+#view-task .task-header,#view-task .task-body{background:rgba(255,255,255,.96);border-radius:16px}
+#view-task .task-body{padding:clamp(12px,2vw,24px)}
+#task-stage.kitchen-wait{min-height:clamp(260px,53vh,540px);color:white;background:linear-gradient(rgba(27,35,29,.48),rgba(27,35,29,.66)),url("https://images.openai.com/static-rsc-4/ppERMQLYm-s7yWbpIcKhwYX3uukfIM0hUdSr6xAq_lU__y6aRz1OjqJgMX7OPw9nS3vk0qJsjiwjkmPdgypaRG1tTn-tBHR5KyKosOU5ayfXRrOdRwH0_onMPEJqNrfDqVGKJgjdd1nTI_i0n14nlf2jdsuKLW_Yy0MFKwjwln59Ng2XLSE54wSI6PJA4CPE?purpose=inline") center/cover no-repeat}
+.kitchen-wait .keep-mind{padding:.75rem 1.25rem;background:rgba(23,33,27,.87);color:white;border-radius:12px;font-weight:700;text-align:center}
+.kitchen-wait .retention-bar{background:rgba(255,255,255,.55)}
+.kitchen-wait .retention-bar i{background:#fff}
 .kitchen-welcome-copy{padding:clamp(18px,4vw,36px)}
 #view-welcome .kitchen-welcome h1{font-size:clamp(1.5rem,4vw,2.2rem);color:white}
 #view-welcome .kitchen-welcome p{color:white;margin:0}
@@ -36,7 +47,6 @@
   <section class="view" id="view-welcome">
     <div class="welcome-head">
       <div class="kitchen-welcome">
-        <img src="https://images.openai.com/static-rsc-4/KyJrQAz8D_0rbdOUj-hV6oG1_mE4QRbmJ9ZjDzT8rQ36a6RhMGbnvNItsYapLBVdx1LT4i1tJA60fj2ah2wtW4FbPMM3rsECGZA5onqoTvfmiCRCftd5UpglHFj6Z_XgN6trdPCdM9zbkytLS3lw63Xck_IG9z5S6cgqe51MSZk?purpose=inline" alt="" fetchpriority="high">
         <div class="kitchen-welcome-copy"><h1>欢迎来到厨房！</h1><p>今天，我们一起准备晚餐吧。</p></div>
       </div>
     </div>
@@ -51,7 +61,7 @@
 
     <div class="test-entry">
       <button class="link-btn" id="btn-test-mode">测试演示 · 使用虚拟编号</button>
-      <p class="privacy-note center">虚拟编号演示 · 本次作答仅保留在当前页面（厨房场景体验版）</p>
+      <p class="privacy-note center">虚拟编号演示 · 本次作答仅保留在当前页面（厨房蒙版体验版）</p>
     </div>
 
     <p class="hint center" style="margin-top:1.1rem;">输入有困难？可以请现场工作人员协助操作。</p>
@@ -240,6 +250,6 @@
 <script src="js/config.js"></script>
 <script src="js/identity.js"></script>
 <script src="js/api.js"></script>
-<script src="js/participant.js?v=kitchen-story-1"></script>
+<script src="js/participant.js?v=kitchen-overlay-2"></script>
 </body>
 </html>
