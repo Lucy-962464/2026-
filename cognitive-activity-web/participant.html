@@ -22,7 +22,21 @@ body:has(#view-welcome.active) .p-wrap,body:has(#view-task.active) .p-wrap{posit
 #view-welcome>.hint{color:white}
 #view-task .task-header,#view-task .task-body{background:rgba(255,255,255,.96);border-radius:16px}
 #view-task .task-body{padding:clamp(12px,2vw,24px)}
-#task-stage.kitchen-wait{min-height:clamp(260px,53vh,540px);color:white;background:linear-gradient(rgba(27,35,29,.48),rgba(27,35,29,.66)),url("https://images.openai.com/static-rsc-4/ppERMQLYm-s7yWbpIcKhwYX3uukfIM0hUdSr6xAq_lU__y6aRz1OjqJgMX7OPw9nS3vk0qJsjiwjkmPdgypaRG1tTn-tBHR5KyKosOU5ayfXRrOdRwH0_onMPEJqNrfDqVGKJgjdd1nTI_i0n14nlf2jdsuKLW_Yy0MFKwjwln59Ng2XLSE54wSI6PJA4CPE?purpose=inline") center/cover no-repeat}
+body:has(#view-task.active .kitchen-wait)::before{background-size:cover,cover,cover;background-position:center}
+#view-task:has(.kitchen-wait) .task-body{background:transparent}
+#task-stage.kitchen-wait{min-height:clamp(260px,57vh,560px);color:white;background:transparent;border:0;box-shadow:none}
+#view-task:has(.kitchen-wait) .help-bar{display:none}
+#view-welcome .welcome-head{margin:0;text-align:center}
+#view-welcome .kitchen-welcome-copy{padding:12px 0}
+#view-welcome .welcome-actions{margin:clamp(10rem,42vh,23rem) auto 0;text-align:center;color:white}
+#view-welcome .welcome-actions p{color:white;margin:.45rem 0}
+#view-welcome .formal-entry{max-width:32rem;margin:.6rem auto;text-align:center}
+#view-welcome .formal-entry summary{cursor:pointer;display:flex;justify-content:center;align-items:center;min-height:56px;width:fit-content;margin:auto;padding:.45rem 1rem;border-radius:12px;background:#f5f8f6;color:#19352a;font-weight:700}
+#view-welcome .formal-entry .login-card{margin:.5rem auto}
+#view-welcome #code-msg:not(:empty){padding:.5rem;border-radius:10px;background:white}
+.child-hint{max-width:27rem;padding:.8rem 1rem;border-radius:16px;background:#edf5e8;color:#203c2f;text-align:left}
+.child-hint p{margin:.25rem 0 0}
+@media(max-height:650px){#view-welcome .welcome-actions{margin-top:clamp(6rem,31vh,13rem)}}
 .kitchen-wait .keep-mind{padding:.75rem 1.25rem;background:rgba(23,33,27,.87);color:white;border-radius:12px;font-weight:700;text-align:center}
 .kitchen-wait .retention-bar{background:rgba(255,255,255,.55)}
 .kitchen-wait .retention-bar i{background:#fff}
@@ -50,21 +64,25 @@ body:has(#view-welcome.active) .p-wrap,body:has(#view-task.active) .p-wrap{posit
         <div class="kitchen-welcome-copy"><h1>欢迎来到厨房！</h1><p>今天，我们一起准备晚餐吧。</p></div>
       </div>
     </div>
-    <div class="card login-card">
+    <div class="welcome-actions">
+      <button class="btn btn-primary btn-lg" id="btn-test-mode">开始厨房体验</button>
+      <p>使用虚拟编号，本次记录仅保留在当前页面。</p>
+    </div>
+    <details class="formal-entry" id="formal-entry">
+      <summary>正式参与 · 身份证登录</summary>
+      <div class="card login-card">
       <label class="login-label" for="code-input">请输入身份证号</label>
       <input class="input id-input" id="code-input" type="text" inputmode="numeric"
              maxlength="20" autocomplete="off" spellcheck="false" placeholder="18 位身份证号">
       <button class="btn btn-primary btn-lg btn-block" id="btn-code-go" style="margin-top:1rem;">开始活动</button>
       <p class="privacy-note">号码只用于找回您自己的活动记录，系统不保存号码本身。</p>
-      <p class="login-msg" id="code-msg"></p>
-    </div>
+      </div>
+    </details>
+    <p class="login-msg" id="code-msg" role="status"></p>
 
-    <div class="test-entry">
-      <button class="link-btn" id="btn-test-mode">测试演示 · 使用虚拟编号</button>
-      <p class="privacy-note center">虚拟编号演示 · 本次作答仅保留在当前页面（厨房蒙版体验版）</p>
-    </div>
 
-    <p class="hint center" style="margin-top:1.1rem;">输入有困难？可以请现场工作人员协助操作。</p>
+
+
   </section>
 
   <section class="view" id="view-kitchen-story" aria-labelledby="kitchen-story-title">
@@ -250,6 +268,6 @@ body:has(#view-welcome.active) .p-wrap,body:has(#view-task.active) .p-wrap{posit
 <script src="js/config.js"></script>
 <script src="js/identity.js"></script>
 <script src="js/api.js"></script>
-<script src="js/participant.js?v=kitchen-overlay-2"></script>
+<script src="js/participant.js?v=kitchen-scene-3"></script>
 </body>
 </html>
