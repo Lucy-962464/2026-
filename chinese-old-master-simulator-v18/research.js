@@ -30,12 +30,13 @@ function compareBayesianPolicies(config,settings) {
       const n=ending.assessment.recommendedSize;
       const eligible=rows.find(row=>{
         const next=row.result.next;
-        return next.assessment?next.assessment.status==='COMPLETED':
-          next.validTotal>=c.minValid&&next.groupsAtSize>=c.minRecentGroups&&next.lastSettled?.size===next.n;
+        if(next.assessment) return next.assessment.status==='COMPLETED';
+        if(!reportGateOpen(c,next)) return false;
+        return c.policy!=='bayes'||bayesianReport(settledBank(next)).status==='MATCH';
       });
       const tested=ending.bank.filter(row=>row.total>0);
       const metrics=summarize(c,rows);
-      return {seed,recommendedSize:n,testedSizes:tested.length,
+      return {seed,recommendedSize:n,assessmentStatus:ending.assessment.status,testedSizes:tested.length,
         targetError:n===null?null:Math.abs(rates[n-2]-BAYES.target),
         mae:mean(tested,row=>Math.abs(posterior(row).mean-rates[row.size-2])),
         firstReportableValid:eligible?.result.next.validTotal??null,reversals:metrics.reversals,
@@ -48,11 +49,81 @@ function compareBayesianPolicies(config,settings) {
       targetDeviation:mean(complete,x=>x.targetError),mae:mean(samples,x=>x.mae),
       averageTestedSizes:mean(samples,x=>x.testedSizes),
       reversals:mean(samples,x=>x.reversals),coverage:complete.length/samples.length,
+      insufficient:samples.filter(x=>x.assessmentStatus==='INSUFFICIENT_EVIDENCE').length/samples.length,
       modalShare:complete.length?Math.max(...Object.values(distribution))/complete.length:null,
       firstReportable:mean(samples.filter(s=>s.firstReportableValid!==null),s=>s.firstReportableValid),distribution
     }};
   }));
   return {version:VERSION,seeds:batchSeeds,budget,target:BAYES.target,conditions};
+}
+function reportGateOpen(c,next) {
+  return next.validTotal>=c.minValid&&next.groupsAtSize>=c.minRecentGroups&&next.lastSettled?.size===next.n;
+}
+function settledBank(next) {
+  return next.assessment?.modelEvidence??addEvidence(next.bank,next.n,-next.v,-next.k);
+}
+function precisionThreshold(maxWidth) {
+  for(let n=BAYES.preliminaryMin;n<=120;n++) {
+    const widths=[];
+    for(let k=Math.ceil(BAYES.lower*n);k<=Math.floor(BAYES.upper*n);k++)
+      widths.push(posterior({total:n,correct:k},true).intervalWidth);
+    if(widths.length&&Math.max(...widths)<=maxWidth) return n;
+  }
+  throw new RangeError('95% credible interval width is outside the calibration grid');
+}
+function v19Target(bank) {
+  return bank.filter(row=>row.total>=BAYES.preliminaryMin).map(row=>posterior(row)).reduce((best,row)=>
+    !best||Math.abs(row.mean-BAYES.target)<Math.abs(best.mean-BAYES.target)-1e-12?row:best,null)?.size??null;
+}
+function recommendationValidation(settings,protocol) {
+  const budget=protocol==='valid60'?60:null;
+  const variants=[{label:'V1.9',rule:null},...[.55,.50,.45,.40].map(maxWidth=>({
+    label:maxWidth===RECOMMENDATION_RULE.maxWidth?'V1.9.1 默认':Math.round(100*maxWidth)+' 个百分点',
+    rule:{...RECOMMENDATION_RULE,minTrials:precisionThreshold(maxWidth),maxWidth}
+  }))];
+  const outcomes=['FORMAL','GATE_CLOSED','NO_ELIGIBLE_DIFFICULTY','NO_TARGET_BAND_MATCH','RANGE_TOO_EASY','RANGE_TOO_HARD','CONFLICTING_BOUNDS'];
+  const conditions=settings.flatMap(({rates},profile)=>{
+    const truth=rates.map(rate=>rate/100);
+    const trials=batchSeeds.map(seed=>run(defaults,profile,{seed,rates,temporal:false},budget));
+    return variants.map(({label,rule})=>{
+      const samples=trials.map((rows,i)=>{
+        let firstValid=null,finalStatus=null,recommendedSize=null,lastReport=null;
+        for(const {result:{next}} of rows) {
+          const end=next.assessment;
+          const gateOpen=end?!end.reasons.some(reason=>reason==='BELOW_MIN_VALID'||reason==='BELOW_MIN_RECENT_GROUPS'):
+            reportGateOpen(defaults,next);
+          if(!gateOpen) {
+            if(end) finalStatus='GATE_CLOSED';
+            continue;
+          }
+          const bank=settledBank(next);
+          const report=rule?bayesianReport(bank,false,2,5,rule):null;
+          const size=rule?report.recommendation?.size??null:v19Target(bank);
+          if(size!==null&&firstValid===null) firstValid=next.validTotal;
+          if(end) {
+            recommendedSize=size;
+            lastReport=report;
+            finalStatus=size!==null?'FORMAL':report?.status??'NO_ELIGIBLE_DIFFICULTY';
+          }
+        }
+        const actual=recommendedSize===null?null:truth[recommendedSize-2];
+        return {seed:batchSeeds[i],validTrials:rows.at(-1).result.next.validTotal,firstValid,finalStatus,recommendedSize,
+          targetGap:actual===null?null:Math.abs(actual-BAYES.target),
+          trueInBand:actual===null?null:actual>=BAYES.lower&&actual<=BAYES.upper,
+          finalCounts:rows.at(-1).result.next.assessment.modelEvidence,
+          boundary:lastReport?.boundary??null};
+      });
+      const formal=samples.filter(s=>s.finalStatus==='FORMAL');
+      const distribution=sizeDistribution(formal,s=>s.recommendedSize);
+      const first=samples.filter(s=>s.firstValid!==null);
+      return {profile,truth,label,rule,samples,summary:{
+        finalOutcomes:Object.fromEntries(outcomes.map(status=>[status,samples.filter(s=>s.finalStatus===status).length])),
+        distribution,meanTargetGap:mean(formal,s=>s.targetGap),trueInBand:formal.filter(s=>s.trueInBand).length,
+        firstReached:first.length,meanFirstValid:mean(first,s=>s.firstValid),meanValidTrials:mean(samples,s=>s.validTrials)
+      }};
+    });
+  });
+  return {version:VERSION,seeds:batchSeeds,protocol,budget,target:BAYES.target,variants,conditions};
 }
 function sizeDistribution(rows,read) {
   return Object.fromEntries(sizes.map(n=>[n,rows.filter(row=>read(row)===n).length]));

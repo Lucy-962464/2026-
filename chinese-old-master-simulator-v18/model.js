@@ -2,14 +2,19 @@ const defaults = {
   window:3, up:3, down:1, quota:8, extraLimit:12, pauseAfter:3, xp:10, show:1300, gap:250, wait:800,
   startSize:2, minSize:2, maxSize:5, cooldown:0, minRecentGroups:1, minValid:32,policy:'bayes'
 };
-const VERSION='1.9';
+const VERSION='1.9.1';
 const RNG_VERSION='counter-hash-v1';
 const RAPID_REVERSAL_TRIALS=3;
-const assessmentLabels={COMPLETED:'正常完成',INSUFFICIENT_EVIDENCE:'证据不足',ABNORMAL_TERMINATION:'异常终止'};
+const assessmentLabels={COMPLETED:'正常完成',INSUFFICIENT_EVIDENCE:'证据不足',RANGE_LIMIT:'难度范围受限',
+  NO_TARGET_MATCH:'目标区间暂无匹配',ABNORMAL_TERMINATION:'异常终止'};
 const terminationReasons={WITHDRAWAL:'参与者退出',TECHNICAL_ISSUE:'设备故障',OTHER:'其他原因'};
 const evidenceReasons={BELOW_MIN_VALID:'累计有效试次未达最低要求',
   BELOW_MIN_RECENT_GROUPS:'最近一次实际调难后的完整证据组未达最低要求',
-  NO_ELIGIBLE_DIFFICULTY:'目前没有达到每档 3 次最低有效数的候选难度'};
+  NO_ELIGIBLE_DIFFICULTY:'目前没有同时达到正式推荐样本量与精度门槛的档位',
+  NO_TARGET_BAND_MATCH:'达标档位的估计均未落入 60%–80% 目标区间',
+  RANGE_TOO_EASY:'有较强证据显示最高难度仍偏容易，现有范围可能不足以提供适宜挑战',
+  RANGE_TOO_HARD:'有较强证据显示最低难度仍偏困难，现有范围可能缺少更容易的任务',
+  CONFLICTING_BOUNDS:'两端证据方向冲突，建议先用未见序列复核各档表现'};
 const titles = ['孙子的便当','女儿的便当','爷爷的便当','全家的便当'];
 const speakers = ['孙子','女儿','爷爷','奶奶'];
 const pool = ['番茄炒蛋','清炒西兰花','红烧肉','蒸南瓜','家常豆腐','凉拌黄瓜','鱼香茄子','蒸鸡蛋羹','糖醋里脊'];
@@ -50,6 +55,15 @@ function finalize(c,{validTotal,groupsAtSize,lastAdjustmentTrial,lastSettled,pen
     suggestedProbeSize:reasons.length||lastSettled.candidate===n?null:lastSettled.candidate,
     basis:reasons.length?null:lastSettled,groupsAtSize,lastAdjustmentTrial,
     deferred:{trials:pendingTrials,correct:pendingCorrect}};
+}
+function finalizeBayesian(c,assessment,bank) {
+  const evaluation=bayesianReport(bank,false,c.minSize,c.maxSize);
+  const modelStatus=evaluation.status;
+  const reasons=modelStatus==='MATCH'?assessment.reasons:[...assessment.reasons,modelStatus];
+  const status=assessment.reasons.length||modelStatus==='NO_ELIGIBLE_DIFFICULTY'?'INSUFFICIENT_EVIDENCE':
+    modelStatus==='MATCH'?'COMPLETED':modelStatus==='NO_TARGET_BAND_MATCH'?'NO_TARGET_MATCH':'RANGE_LIMIT';
+  return {...assessment,status,reasons,modelStatus,recommendedSize:status==='COMPLETED'?evaluation.recommendation.size:null,
+    suggestedProbeSize:null,modelEvidence:bank};
 }
 function synthetic(profile,i,n,performance=null) {
   const status = i===5?'ABORT':i===12?'HINT':i===19?'TECH':'SUBMIT';
@@ -136,11 +150,7 @@ function step(c,s,input,validBudget=null) {
     lastSettled,pendingTrials:block?[]:evidenceTrials,pendingCorrect:block?0:k,n:s.n}):null;
   if(ending&&c.policy==='bayes') {
     const finalBank=block?bank:addEvidence(bank,s.n,-v,-k);
-    const evaluation=bayesianReport(finalBank,false,c.minSize,c.maxSize);
-    const reasons=[...assessment.reasons,...(!evaluation.recommendation?['NO_ELIGIBLE_DIFFICULTY']:[])];
-    assessment={...assessment,reasons,status:reasons.length?'INSUFFICIENT_EVIDENCE':'COMPLETED',
-      recommendedSize:reasons.length?null:evaluation.recommendation.size,
-      suggestedProbeSize:null,modelEvidence:finalBank};
+    assessment=finalizeBayesian(c,assessment,finalBank);
   }
   const capped=quotaReached&&!gameCompleted&&!block&&v>0&&extraTrials>=c.extraLimit;
   const advance=quotaReached&&!gameCompleted&&(block||v===0||capped);
@@ -148,7 +158,7 @@ function step(c,s,input,validBudget=null) {
   const excludedStreak=valid?0:s.excludedStreak+1;
   const paused=!ending&&excludedStreak>=c.pauseAfter;
   const adjusted=!ending&&candidate!==s.n;
-  if(ending&&valid&&!block) decision=assessment.status==='COMPLETED'?'FINAL_PRIOR_EVIDENCE':'FINAL_INSUFFICIENT';
+  if(ending&&valid&&!block) decision=assessment.status==='INSUFFICIENT_EVIDENCE'?'FINAL_INSUFFICIENT':'FINAL_PRIOR_EVIDENCE';
   return {submitted,valid,exclusionReason,exact,timedOut:status==='TIMEOUT',v,k,decision,proposedDecision,candidate,advance,
     quotaReached,extraTrials,gameCompleted,evidenceStatus,evidenceTrials,probabilityEvidence,
     pauseReason:paused?'CONSECUTIVE_EXCLUDED_TRIALS':null,

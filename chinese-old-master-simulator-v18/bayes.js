@@ -1,6 +1,8 @@
-const BAYES=Object.freeze({target:0.70,lower:0.60,upper:0.80,confidence:0.75,minPerSize:3,window:3});
+const BAYES=Object.freeze({target:0.70,lower:0.60,upper:0.80,confidence:0.75,preliminaryMin:3,window:3});
+const RECOMMENDATION_RULE=Object.freeze({minTrials:11,maxWidth:0.50,boundaryConfidence:0.975});
 const DIFFICULTIES=[2,3,4,5];
 const emptyEvidence=()=>DIFFICULTIES.map(size=>({size,total:0,correct:0}));
+const intervalCache=new Map();
 
 // For integer a,b, the Beta CDF equals a binomial upper tail. Scale
 // weights around the mode so even large counts avoid underflow.
@@ -31,8 +33,14 @@ function betaQuantile(a,b,q) {
 }
 function posterior(count,intervals=false) {
   const {total,correct}=count, alpha=correct+1,beta=total-correct+1;
+  let interval95=null;
+  if(total&&intervals) {
+    const key=alpha+':'+beta;
+    if(!intervalCache.has(key)) intervalCache.set(key,Object.freeze([betaQuantile(alpha,beta,0.025),betaQuantile(alpha,beta,0.975)]));
+    interval95=intervalCache.get(key);
+  }
   return {...count,alpha,beta,mean:total?alpha/(alpha+beta):null,
-    interval95:total&&intervals?[betaQuantile(alpha,beta,0.025),betaQuantile(alpha,beta,0.975)]:null,
+    interval95,intervalWidth:interval95?interval95[1]-interval95[0]:null,
     support:total?betaTails(alpha,beta,BAYES.lower).above:null};
 }
 function addEvidence(bank,size,total,correct) {
@@ -44,18 +52,30 @@ function windowEvidence(total,correct) {
   return {alpha,beta,upgrade:betaTails(alpha,beta,BAYES.target).above,
     downgrade:betaTails(alpha,beta,BAYES.lower).below};
 }
-function bayesianReport(bank,intervals=false,minSize=2,maxSize=5) {
-  const curve=bank.map(row=>posterior(row,intervals));
-  let supportedSize=null, best=null, prefix=true;
-  for(const row of curve.filter(r=>r.size>=minSize&&r.size<=maxSize)) {
-    const eligible=row.total>=BAYES.minPerSize;
-    prefix=prefix&&eligible&&row.support>=BAYES.confidence;
+function bayesianReport(bank,intervals=false,minSize=2,maxSize=5,rule=RECOMMENDATION_RULE) {
+  const curve=bank.filter(r=>r.size>=minSize&&r.size<=maxSize).map(count=>{
+    const preliminary=count.total>=BAYES.preliminaryMin;
+    const row=posterior(count,preliminary&&(intervals||count.total>=rule.minTrials));
+    const eligible=count.total>=rule.minTrials&&row.intervalWidth!==null&&row.intervalWidth<=rule.maxWidth;
+    const evidence=count.total===0?'UNTESTED':!preliminary?'OBSERVING':eligible?'CANDIDATE':'PRELIMINARY';
+    return {...row,evidence,eligible};
+  });
+  let supportedSize=null, nearest=null, prefix=true;
+  for(const row of curve) {
+    prefix=prefix&&row.total>=BAYES.preliminaryMin&&row.support>=BAYES.confidence;
     if(prefix) supportedSize=row.size;
-    if(!eligible) continue;
+    if(!row.eligible) continue;
     const gap=Math.abs(row.mean-BAYES.target);
-    if(!best||gap<best.gap-1e-12) best={size:row.size,mean:row.mean,gap,
+    if(!nearest||gap<nearest.gap-1e-12) nearest={size:row.size,mean:row.mean,gap,
       inBand:row.mean>=BAYES.lower&&row.mean<=BAYES.upper};
   }
-  return {curve,supportedSize,recommendation:best};
+  const low=curve[0],high=curve.at(-1);
+  const lowProbability=low?.eligible?betaTails(low.alpha,low.beta,BAYES.lower).below:null;
+  const highProbability=high?.eligible?betaTails(high.alpha,high.beta,BAYES.upper).above:null;
+  const tooHard=lowProbability!==null&&lowProbability>=rule.boundaryConfidence;
+  const tooEasy=highProbability!==null&&highProbability>=rule.boundaryConfidence;
+  const status=tooHard&&tooEasy?'CONFLICTING_BOUNDS':tooHard?'RANGE_TOO_HARD':tooEasy?'RANGE_TOO_EASY':
+    !nearest?'NO_ELIGIBLE_DIFFICULTY':!nearest.inBand?'NO_TARGET_BAND_MATCH':'MATCH';
+  return {curve,supportedSize,nearest,recommendation:status==='MATCH'?nearest:null,status,boundary:{lowProbability,highProbability}};
 }
 

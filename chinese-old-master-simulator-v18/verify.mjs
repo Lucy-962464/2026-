@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 const source=(await Promise.all(['bayes.js','model.js','research.js'].map(f=>fs.readFile(new URL(f,import.meta.url),'utf8')))).join('\n');
-const {defaults,defaultRates,betaTails,posterior,windowEvidence,bayesianReport,start,step,run,compareBayesianPolicies}=
-  new Function(source+';return {defaults,defaultRates,betaTails,posterior,windowEvidence,bayesianReport,start,step,run,compareBayesianPolicies}')();
+const {defaults,defaultRates,betaTails,posterior,windowEvidence,bayesianReport,start,step,run,
+  compareBayesianPolicies,recommendationValidation,RECOMMENDATION_RULE}=
+  new Function(source+';return {defaults,defaultRates,betaTails,posterior,windowEvidence,bayesianReport,start,step,run,compareBayesianPolicies,recommendationValidation,RECOMMENDATION_RULE}')();
 const close=(actual,expected)=>assert.ok(Math.abs(actual-expected)<1e-9,[actual,expected]);
 [[.0081,.9744],[.0837,.8208],[.3483,.4752],[.7599,.1296]].forEach(([up,down],k)=>{
   const p=windowEvidence(3,k);close(p.upgrade,up);close(p.downgrade,down);
@@ -14,12 +15,21 @@ close(high.interval95[1],.975**.25);
 const tiny=betaTails(5001,1,.99);
 close(tiny.below,.99**5001);
 assert.equal(posterior({size:2,total:0,correct:0}).mean,null);
-const curve=[{size:2,total:8,correct:8},{size:3,total:8,correct:6},{size:4,total:6,correct:3},{size:5,total:0,correct:0}];
+const curve=[{size:2,total:3,correct:3},{size:3,total:18,correct:13},{size:4,total:11,correct:5},{size:5,total:0,correct:0}];
 assert.equal(bayesianReport(curve).recommendation.size,3);
 assert.equal(bayesianReport(curve).supportedSize,3);
-assert.equal(bayesianReport([{size:2,total:3,correct:2},{size:3,total:3,correct:3}]).recommendation.size,2);
+assert.deepEqual(bayesianReport(curve,true).curve.map(row=>row.evidence),['PRELIMINARY','CANDIDATE','PRELIMINARY','UNTESTED']);
+assert.equal(bayesianReport([{size:2,total:18,correct:12},{size:3,total:18,correct:14}]).recommendation.size,2);
 assert.equal(bayesianReport([{size:2,total:2,correct:2},{size:3,total:20,correct:20}]).supportedSize,null);
+assert.equal(bayesianReport([{size:2,total:2,correct:2}],true).curve[0].interval95,null);
 assert.equal(bayesianReport([{size:2,total:2,correct:2}]).recommendation,null);
+const bounds=(low,high,total=30)=>bayesianReport([{size:2,total,correct:low},{size:5,total,correct:high}]);
+assert.equal(bounds(21,30).status,'RANGE_TOO_EASY');
+assert.equal(bounds(3,20).status,'RANGE_TOO_HARD');
+assert.equal(bounds(3,30).status,'CONFLICTING_BOUNDS');
+assert.equal(bounds(30,0).status,'NO_TARGET_BAND_MATCH');
+assert.notEqual(bounds(8,8,8).status,'RANGE_TOO_EASY');
+assert.equal(bounds(21,30).recommendation,null);
 let s=start(defaults);
 const ok={status:'SUBMIT',items:2,hits:2};
 const r=step(defaults,s,{status:'TIMEOUT',items:2,hits:2});
@@ -32,7 +42,8 @@ for(const n of [2,3,4,5]) for(const k of [0,1,2,3]){
   assert.equal(s.n,Math.max(2,Math.min(5,n+(k===3?1:k<=1?-1:0))));
 }
 const last=run(defaults,0).at(-1).result.next;
-assert.equal(last.assessment.status,'COMPLETED');
+assert.equal(last.assessment.status,'RANGE_LIMIT');
+assert.equal(last.assessment.modelStatus,'RANGE_TOO_EASY');
 assert.equal(last.bank.reduce((sum,row)=>sum+row.total,0)-last.assessment.modelEvidence.reduce((sum,row)=>sum+row.total,0),2);
 assert.equal(run(defaults,1).at(-1).result.next.assessment.status,'INSUFFICIENT_EVIDENCE');
 const study=compareBayesianPolicies(defaults,defaultRates.map(rates=>({rates,temporal:false})));
@@ -45,5 +56,16 @@ for(let p=0;p<4;p++) {
     assert.deepEqual(fixed.map(t=>t.draw),modern.samples[i].decisionLog.map(t=>t.draw));
   }
 }
-console.log(JSON.stringify(study.conditions.map(({profile,arm,summary})=>({profile,arm,...summary})),null,2));
+for(const protocol of ['story','valid60']) {
+  const validation=recommendationValidation(defaultRates.map(rates=>({rates})),protocol);
+  assert.deepEqual(validation.variants[2].rule,RECOMMENDATION_RULE);
+  for(const {profile,samples,summary} of validation.conditions.filter(row=>row.label==='V1.9.1 默认')) {
+    assert.equal(Object.values(summary.finalOutcomes).reduce((total,n)=>total+n,0),100);
+    for(const sample of samples) {
+      const live=run(defaults,profile,{seed:sample.seed,rates:defaultRates[profile]},validation.budget).at(-1).result.next.assessment;
+      assert.equal(sample.recommendedSize,live.recommendedSize);
+    }
+  }
+}
+console.log('Passed: posterior and interval gates, range outcomes, final evidence, paired online decisions, and recommendation replay.');
 
