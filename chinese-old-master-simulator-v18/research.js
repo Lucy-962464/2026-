@@ -12,7 +12,47 @@ function batchCondition(config,overrides,protocol) {
   const validBudget=protocol==='valid60'?60:protocol==='groups10'?10*overrides.window:null;
   // The 10-group arms share a minimum feasible in the shortest arm (30 trials).
   const minValid=protocol==='valid60'?Math.min(config.minValid,60):protocol==='groups10'?Math.min(config.minValid,30):config.minValid;
-  return {config:{...config,...overrides,minValid},validBudget};
+  return {config:{...config,...overrides,minValid,policy:'counts'},validBudget};
+}
+function compareBayesianPolicies(config,settings) {
+  const budget=60;
+  const arms=[
+    ...[2,3,4].map(n=>({label:'固定 '+n+' 道',policy:'fixed',startSize:n})),
+    {label:'原始计数规则',policy:'counts',startSize:2},
+    {label:'贝叶斯双层',policy:'bayes',startSize:2}
+  ];
+  const conditions=arms.flatMap(arm=>settings.map((p,profile)=>{
+    const c={...config,...arm,window:3,up:3,down:1,cooldown:0,minSize:2,maxSize:5,minValid:32,minRecentGroups:1};
+    const rates=p.rates.map(rate=>rate/100);
+    const samples=batchSeeds.map(seed=>{
+      const rows=run(c,profile,{seed,rates:p.rates,temporal:false},budget);
+      const last=rows.at(-1),ending=last.result.next;
+      const n=ending.assessment.recommendedSize;
+      const eligible=rows.find(row=>{
+        const next=row.result.next;
+        return next.assessment?next.assessment.status==='COMPLETED':
+          next.validTotal>=c.minValid&&next.groupsAtSize>=c.minRecentGroups&&next.lastSettled?.size===next.n;
+      });
+      const tested=ending.bank.filter(row=>row.total>0);
+      const metrics=summarize(c,rows);
+      return {seed,recommendedSize:n,testedSizes:tested.length,
+        targetError:n===null?null:Math.abs(rates[n-2]-BAYES.target),
+        mae:mean(tested,row=>Math.abs(posterior(row).mean-rates[row.size-2])),
+        firstReportableValid:eligible?.result.next.validTotal??null,reversals:metrics.reversals,
+        decisionLog:rows.map(({i,s,input,result:r})=>({trial:i,size:s.n,p:input.probability,draw:input.draw,
+          status:input.status,valid:r.valid,exact:r.exact,decision:r.decision,nextSize:r.next.n}))};
+    });
+    const complete=samples.filter(x=>x.recommendedSize!==null);
+    const distribution=sizeDistribution(complete,x=>x.recommendedSize);
+    return {profile,arm:arm.label,policy:arm.policy,rates,samples,summary:{
+      targetDeviation:mean(complete,x=>x.targetError),mae:mean(samples,x=>x.mae),
+      averageTestedSizes:mean(samples,x=>x.testedSizes),
+      reversals:mean(samples,x=>x.reversals),coverage:complete.length/samples.length,
+      modalShare:complete.length?Math.max(...Object.values(distribution))/complete.length:null,
+      firstReportable:mean(samples.filter(s=>s.firstReportableValid!==null),s=>s.firstReportableValid),distribution
+    }};
+  }));
+  return {version:VERSION,seeds:batchSeeds,budget,target:BAYES.target,conditions};
 }
 function sizeDistribution(rows,read) {
   return Object.fromEntries(sizes.map(n=>[n,rows.filter(row=>read(row)===n).length]));

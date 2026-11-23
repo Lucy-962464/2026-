@@ -1,20 +1,20 @@
 const defaults = {
   window:3, up:3, down:1, quota:8, extraLimit:12, pauseAfter:3, xp:10, show:1300, gap:250, wait:800,
-  startSize:2, minSize:2, maxSize:5, cooldown:0, minRecentGroups:1, minValid:32
+  startSize:2, minSize:2, maxSize:5, cooldown:0, minRecentGroups:1, minValid:32,policy:'bayes'
 };
-const VERSION='1.8';
+const VERSION='1.9';
 const RNG_VERSION='counter-hash-v1';
 const RAPID_REVERSAL_TRIALS=3;
 const assessmentLabels={COMPLETED:'正常完成',INSUFFICIENT_EVIDENCE:'证据不足',ABNORMAL_TERMINATION:'异常终止'};
 const terminationReasons={WITHDRAWAL:'参与者退出',TECHNICAL_ISSUE:'设备故障',OTHER:'其他原因'};
 const evidenceReasons={BELOW_MIN_VALID:'累计有效试次未达最低要求',
-  BELOW_MIN_RECENT_GROUPS:'最近一次实际调难后的完整证据组未达最低要求'};
+  BELOW_MIN_RECENT_GROUPS:'最近一次实际调难后的完整证据组未达最低要求',
+  NO_ELIGIBLE_DIFFICULTY:'目前没有达到每档 3 次最低有效数的候选难度'};
 const titles = ['孙子的便当','女儿的便当','爷爷的便当','全家的便当'];
 const speakers = ['孙子','女儿','爷爷','奶奶'];
 const pool = ['番茄炒蛋','清炒西兰花','红烧肉','蒸南瓜','家常豆腐','凉拌黄瓜','鱼香茄子','蒸鸡蛋羹','糖醋里脊'];
 const profiles = ['稳定高表现','中等 · 高难度困难','低起点表现','波动表现'];
 const defaultRates=[[98,97,95,92],[90,85,48,30],[32,24,14,8],[61,50,46,39]];
-const statuses = ['SUBMIT','HINT','ABORT','TECH'];
 const decisions = {
   INVALID:'无效 · 不计入证据', COLLECT:'保持 · 累计中', UP:'升级', DOWN:'降级',
   MAX:'上限保持', MIN:'下限保持', HOLD:'普通保持', COOLDOWN:'冷却保持',
@@ -31,7 +31,7 @@ function validConfig(c) {
 function start(c) {
   return {level:1,n:c.startSize,done:0,extraTrials:0,v:0,k:0,xp:0,gameCompleted:false,paused:false,excludedStreak:0,
     lastDirection:null,cooldownRemaining:0,validTotal:0,groupsAtSize:0,lastAdjustmentTrial:null,
-    lastSettled:null,pendingTrials:[],attempts:0,assessment:null};
+    lastSettled:null,pendingTrials:[],attempts:0,assessment:null,bank:emptyEvidence()};
 }
 function resume(s) {
   if(!s.paused) return s;
@@ -100,18 +100,23 @@ function step(c,s,input,validBudget=null) {
   if(s.assessment||s.gameCompleted) throw new Error('测评已结束');
   if(s.paused) throw new Error('测验已暂停');
   const {status,items,hits} = input;
-  const submitted = ['SUBMIT','HINT'].includes(status) && integer(items,1,s.n) &&
+  const submitted = ['SUBMIT','HINT','TIMEOUT'].includes(status) && integer(items,1,s.n) &&
     integer(hits,0,items) && !(items===s.n && hits===s.n-1);
-  const valid = submitted && status==='SUBMIT';
+  const valid = submitted && status!=='HINT';
   const exclusionReason=valid?null:status==='ABORT'?'ABORTED':status==='TECH'?'TECHNICAL_ISSUE':
     submitted?'HINTED_SUBMISSION':'INVALID_INPUT';
-  const exact = submitted && hits===s.n;
+  const exact = submitted && hits===s.n&&status!=='TIMEOUT';
   const v=s.v+Number(valid), k=s.k+Number(valid&&exact);
   const block=valid && v===c.window;
+  const probabilityEvidence=block?windowEvidence(v,k):null;
+  const bank=addEvidence(s.bank,s.n,Number(valid),Number(valid&&exact));
   let decision = !valid?'INVALID':'COLLECT', candidate=s.n;
   if(block) {
-    if(k>=c.up) { candidate=Math.min(c.maxSize,s.n+1); decision=candidate>s.n?'UP':'MAX'; }
-    else if(k<=c.down) { candidate=Math.max(c.minSize,s.n-1); decision=candidate<s.n?'DOWN':'MIN'; }
+    const up=c.policy==='bayes'?probabilityEvidence.upgrade>=BAYES.confidence:k>=c.up;
+    const down=c.policy==='bayes'?probabilityEvidence.downgrade>=BAYES.confidence:k<=c.down;
+    if(c.policy==='fixed') decision='HOLD';
+    else if(up) { candidate=Math.min(c.maxSize,s.n+1); decision=candidate>s.n?'UP':'MAX'; }
+    else if(down) { candidate=Math.max(c.minSize,s.n-1); decision=candidate<s.n?'DOWN':'MIN'; }
     else decision='HOLD';
   }
   const proposedDecision=decision;
@@ -127,8 +132,16 @@ function step(c,s,input,validBudget=null) {
   const evidenceTrials=valid?[...s.pendingTrials,attempts]:s.pendingTrials;
   const groupsAtSize=s.groupsAtSize+Number(block);
   const lastSettled=block?{level:s.level,size:s.n,trials:evidenceTrials,correct:k,decision,candidate}:s.lastSettled;
-  const assessment=ending?finalize(c,{validTotal,groupsAtSize,lastAdjustmentTrial:s.lastAdjustmentTrial,
+  let assessment=ending?finalize(c,{validTotal,groupsAtSize,lastAdjustmentTrial:s.lastAdjustmentTrial,
     lastSettled,pendingTrials:block?[]:evidenceTrials,pendingCorrect:block?0:k,n:s.n}):null;
+  if(ending&&c.policy==='bayes') {
+    const finalBank=block?bank:addEvidence(bank,s.n,-v,-k);
+    const evaluation=bayesianReport(finalBank,false,c.minSize,c.maxSize);
+    const reasons=[...assessment.reasons,...(!evaluation.recommendation?['NO_ELIGIBLE_DIFFICULTY']:[])];
+    assessment={...assessment,reasons,status:reasons.length?'INSUFFICIENT_EVIDENCE':'COMPLETED',
+      recommendedSize:reasons.length?null:evaluation.recommendation.size,
+      suggestedProbeSize:null,modelEvidence:finalBank};
+  }
   const capped=quotaReached&&!gameCompleted&&!block&&v>0&&extraTrials>=c.extraLimit;
   const advance=quotaReached&&!gameCompleted&&(block||v===0||capped);
   const evidenceStatus=block?'SETTLED':v===0?'EMPTY':ending?'INCOMPLETE_AT_END':capped?'INCOMPLETE_AT_CHAPTER_CAP':'COLLECTING';
@@ -136,7 +149,8 @@ function step(c,s,input,validBudget=null) {
   const paused=!ending&&excludedStreak>=c.pauseAfter;
   const adjusted=!ending&&candidate!==s.n;
   if(ending&&valid&&!block) decision=assessment.status==='COMPLETED'?'FINAL_PRIOR_EVIDENCE':'FINAL_INSUFFICIENT';
-  return {submitted,valid,exclusionReason,exact,v,k,decision,proposedDecision,candidate,advance,quotaReached,extraTrials,gameCompleted,evidenceStatus,evidenceTrials,
+  return {submitted,valid,exclusionReason,exact,timedOut:status==='TIMEOUT',v,k,decision,proposedDecision,candidate,advance,
+    quotaReached,extraTrials,gameCompleted,evidenceStatus,evidenceTrials,probabilityEvidence,
     pauseReason:paused?'CONSECUTIVE_EXCLUDED_TRIALS':null,
     stars:submitted?(valid?(exact?3:2):1):0,
     next:{level:ending?null:s.level+Number(advance),n:ending?null:candidate,done:advance?0:done,extraTrials:advance?0:extraTrials,
@@ -144,7 +158,7 @@ function step(c,s,input,validBudget=null) {
       lastDirection:adjusted?decision:s.lastDirection,cooldownRemaining:adjusted?c.cooldown:Math.max(0,s.cooldownRemaining-Number(block)),
       validTotal,attempts,lastSettled,
       pendingTrials:block||advance?[]:evidenceTrials,
-      groupsAtSize:adjusted?0:groupsAtSize,lastAdjustmentTrial:adjusted?attempts:s.lastAdjustmentTrial,assessment}};
+      groupsAtSize:adjusted?0:groupsAtSize,lastAdjustmentTrial:adjusted?attempts:s.lastAdjustmentTrial,assessment,bank}};
 }
 function run(c,profile,performance=null,validBudget=null) {
   let s=start(c);

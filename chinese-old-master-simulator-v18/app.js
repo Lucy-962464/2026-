@@ -1,6 +1,6 @@
 const $=id=>document.getElementById(id);
-const keys=['window','up','down','quota','minValid','minRecentGroups','extraLimit','pauseAfter','cooldown','xp','show','gap','wait'];
-const labels=['有效试次 / 组','升级正确数 ≥','降级正确数 ≤','每关最低剧情提交配额','全程最低有效试次数','最近调难后最低完整组数','配额后额外轮次上限','连续排除暂停阈值','反向冷却组数（实验）','每次提交经验','单菜呈现 ms','菜品间隔 ms','保持间隔 ms'];
+const keys=['quota','minValid','minRecentGroups','extraLimit','pauseAfter'];
+const labels=['每关最低剧情提交配额','全程最低有效试次数','最近调难后最低完整组数','配额后额外轮次上限','连续排除暂停阈值'];
 const clone=value=>JSON.parse(JSON.stringify(value));
 let config=clone(defaults), current=start(config), rows=[], runEvents=[], activePerformance=null;
 const storyLabel=level=>level===null?'已完成':'L'+level;
@@ -8,8 +8,6 @@ const excludedLabels={ABORTED:'主动中止',HINTED_SUBMISSION:'提示后提交'
 const stat=(label,value)=>'<div class="stat">'+label+'<b>'+value+'</b></div>';
 function populate(c) {
   $('parameters').innerHTML=keys.map((key,i)=>'<label>'+labels[i]+'<input type="number" step="1" required id="p_'+key+'" value="'+c[key]+'"></label>').join('');
-  $('levelFields').innerHTML=[['startSize','L1 起始菜数'],['minSize','全局下限'],['maxSize','全局上限']].map(([key,label])=>
-    '<label>'+label+'<input type="number" step="1" required min="2" max="5" id="p_'+key+'" value="'+c[key]+'"></label>').join('');
 }
 function paint() {
   const mode=$('mode').value, finished=current.gameCompleted;
@@ -62,6 +60,7 @@ function paintReport() {
   if(!a) return;
   const metrics=summarize(config,rows);
   const reason=a.reasons.map(code=>evidenceReasons[code]??terminationReasons[code]).join('；');
+  const posteriorReport=a.modelEvidence?bayesianReport(a.modelEvidence,true):null;
   const recommendation=a.status==='COMPLETED'?'模拟推荐菜数 '+a.recommendedSize+' 道。':
     a.status==='INSUFFICIENT_EVIDENCE'?'测评已结束，当前证据不足，暂不形成最终难度判断。':'本次测评提前结束，暂不形成最终难度判断。';
   $('assessmentReport').innerHTML='<h2>最终测评报告 · '+assessmentLabels[a.status]+'</h2><p>'+recommendation+'</p>'+
@@ -71,11 +70,12 @@ function paintReport() {
     ' / '+config.window+(a.deferred?.trials.length?'（未满组，保留但不纳入最终判断）':'')+'</dd>'+
     '<dt>最近调难后完整证据组</dt><dd>'+current.groupsAtSize+' / '+config.minRecentGroups+
     (current.lastAdjustmentTrial===null?'（从起始难度累计）':'（最近调难为第 '+current.lastAdjustmentTrial+' 轮后）')+'</dd></dl>'+
-    (a.basis?'<p>判断依据：'+a.basis.size+' 道菜，第 '+a.basis.trials.join('、')+' 轮，'+a.basis.correct+'/'+config.window+' 完整正确。</p>':'')+
+    (a.basis?'<p>通过收尾门槛的证据组：'+a.basis.size+' 道菜，第 '+a.basis.trials.join('、')+' 轮，'+a.basis.correct+'/'+config.window+' 完整正确。</p>':'')+
     (a.deferred?.trials.length?'<p>暂缓纳入：第 '+a.deferred.trials.join('、')+' 轮。</p>':'')+
     (a.suggestedProbeSize?'<p>规则另建议后续试做 '+a.suggestedProbeSize+' 道菜。该建议尚无同难度完整组证据。</p>':'')+
     '<p>合法剧情提交 '+rows.filter(row=>row.result.submitted).length+' 次 · 全程完整正确率 '+percent(metrics.fullSequenceAccuracy)+'。</p>'+
-    '<p class="muted">本报告仅解释原型规则与记录。</p>';
+    (posteriorReport?'<h3>最终推荐所用的四档证据</h3>'+renderBayesian(posteriorReport,a.status==='COMPLETED'):'')+
+    '<p class="muted">本报告仅解释任务表现，阈值仍需预测试。</p>';
 }
 function reset(message='') {
   current=start(config);rows=[];runEvents=[];
@@ -88,6 +88,8 @@ function describeRow(c,{i,s,input,result}, detail={}) {
   return {i,s,input,result,submissionCompletionRate:result.submitted?input.items/s.n:null,
     positionAccuracy:result.submitted?input.hits/s.n:null,
     fullSequenceCorrect:result.submitted?result.exact:null,
+    timedOut:result.timedOut,responseMs:detail.responseMs??null,undos:detail.undos??null,
+    posteriorAfterTrial:posterior(result.next.bank[s.n-2],true),
     reason:reasonFor(c,{input,result}),...detail};
 }
 function append(input,detail={}) {
@@ -98,7 +100,7 @@ function append(input,detail={}) {
   const cells=[i,storyLabel(s.level),s.n,input.status,result.valid?'是':'否',excludedLabels[result.exclusionReason]??'—',
     result.submitted?'是':'否',result.submitted?percent(input.items):'—',
     result.submitted?percent(input.hits):'—',result.submitted?+result.exact:'—',result.v+' / '+result.k,
-    decisions[result.decision],result.candidate,storyLabel(current.level)+(current.n?' / '+current.n:''),detail.undos??0,current.xp,result.stars];
+    decisions[result.decision],result.candidate,storyLabel(current.level)+(current.n?' / '+current.n:''),detail.undos??'—',detail.responseMs??'—',current.xp,result.stars];
   const row=document.createElement('tr');
   for(const value of cells) {const cell=document.createElement('td');cell.textContent=value;row.append(cell);}
   $('log').prepend(row);
@@ -145,10 +147,9 @@ $('editRates').onclick=()=>{
 };
 $('parameterForm').onsubmit=event=>{
   event.preventDefault();
-  const edit=Object.fromEntries(keys.map(key=>[key,$('p_'+key).valueAsNumber]));
-  for(const key of ['startSize','minSize','maxSize']) edit[key]=$('p_'+key).valueAsNumber;
+  const edit={...defaults,...Object.fromEntries(keys.map(key=>[key,$('p_'+key).valueAsNumber]))};
   if(!validConfig(edit)) {
-    $('paramMessage').textContent='请输入整数：组大小 1–12；0 ≤ 降级 < 升级 ≤ 组大小；最低提交配额 1–16；全程最低有效数 1–120；最近调难后最低完整组 1–5；额外轮次 0–30；暂停阈值 2–12；反向冷却 0–3 组；经验 0–1000；时序依次为 100–10000、0–5000、0–10000 ms；菜数 2–5 且下限 ≤ 起始菜数 ≤ 上限。';
+    $('paramMessage').textContent='请输入允许范围内的整数。每关最低配额 1–16，全程最低有效 1–120，收尾完整组 1–5，额外轮次 0–30，暂停阈值 2–12。';
     return;
   }
   config=edit;
@@ -159,14 +160,17 @@ $('parameterForm').onsubmit=event=>{
 $('restore').onclick=()=>{populate(defaults);$('paramMessage').textContent='默认值已填入。点击「应用并重置」生效。';};
 $('record').onclick=()=>{
   const status=$('status').value, undos=$('undos').valueAsNumber;
-  const counts=['SUBMIT','HINT'].includes(status);
+  const counts=['SUBMIT','HINT','TIMEOUT'].includes(status);
+  const ms=$('responseMs').value===''?null:$('responseMs').valueAsNumber;
   if(!integer(undos,0,Number.MAX_SAFE_INTEGER)){$('message').textContent='撤销次数须为非负整数。';return;}
+  if(ms!==null&&!integer(ms,0,Number.MAX_SAFE_INTEGER)){$('message').textContent='作答毫秒须为非负整数。';return;}
   const completion=$('items').valueAsNumber, accuracy=$('hits').valueAsNumber;
   const parsed=counts?validateRates(current.n,completion,accuracy):{items:null,hits:null,error:null};
   append({status,items:parsed.items,hits:parsed.hits,validationError:parsed.error},
-    {undos,enteredPercentages:counts?{submissionCompletion:completion,positionAccuracy:accuracy}:null});
+    {undos,responseMs:ms,enteredPercentages:counts?{submissionCompletion:completion,positionAccuracy:accuracy}:null});
   if(parsed.error) $('message').textContent+=' '+parsed.error;
   else if(counts&&status==='SUBMIT'&&!rows.at(-1).result.exact) $('message').textContent+=' 有效提交，序列未完全正确。';
+  else if(status==='TIMEOUT') $('message').textContent+=' 超时按有效错误计。';
   refresh();
 };
 function downloadJSON(data,name) {
@@ -179,18 +183,21 @@ $('export').onclick=()=>{
   const mode=$('mode').value;
   const data={version:VERSION,parameterVersion:VERSION,mode,profile:mode==='manual'?null:profiles[Number($('profile').value)],
     simulationMode:simulationMode(activePerformance,mode),...randomMetadata(activePerformance),performance:activePerformance,
-    config,pool,metrics:summarize(config,rows),state:current,runEvents,rows};
+    config,bayesParameters:BAYES,pool,metrics:summarize(config,rows),
+    taskProfile:bayesianReport(current.bank,true),
+    finalModel:current.assessment?.modelEvidence?bayesianReport(current.assessment.modelEvidence,true):null,
+    state:current,runEvents,rows};
   downloadJSON(data,'old-master-'+mode+'-trials.json');
 };
 function reasonFor(c,{input,result:r}) {
   switch(r.decision) {
-    case 'UP': return '完整正确数达到升级阈值（≥ '+c.up+' 次），本关建议增加一道菜。';
-    case 'DOWN': return '完整正确数达到降级条件（≤ '+c.down+' 次），本关建议减少一道菜。';
+    case 'UP': return c.policy==='bayes'?'窗口升级后验概率达到 75%，建议增加一道菜。':'完整正确数达到升级阈值，建议增加一道菜。';
+    case 'DOWN': return c.policy==='bayes'?'窗口降级后验概率达到 75%，建议减少一道菜。':'完整正确数达到降级阈值，建议减少一道菜。';
     case 'MAX': return '达到升级阈值，当前菜数已是全局上限。';
     case 'MIN': return '达到降级条件，当前菜数已是全局下限。';
-    case 'HOLD': return '完整正确数位于两个阈值之间，沿用当前菜数并开始新证据组。';
+    case 'HOLD': return c.policy==='bayes'?'窗口的两个后验决策门槛均未达到，保持菜数。':'完整正确数位于两个阈值之间，保持菜数。';
     case 'COOLDOWN': return '证据满足'+(r.proposedDecision==='UP'?'升级':'降级')+'条件，但本组暂缓反向调整（实验冷却）。';
-    case 'FINAL_PRIOR_EVIDENCE': return '收尾证据未满组，最终判断采用最近调难后在当前菜数结算的最近完整组。';
+    case 'FINAL_PRIOR_EVIDENCE': return '收尾未满组保留。符合收尾证据门槛后，进行跨档目标匹配。';
     case 'FINAL_INSUFFICIENT': return '剧情已结束；最低有效试次数或最近调难后的完整组要求未满足。';
     case 'COLLECT': return '本组累计 '+r.v+' / '+c.window+' 次有效试次。'+
       (r.evidenceStatus==='INCOMPLETE_AT_CHAPTER_CAP'?'已达额外轮次上限，此组未作升降判断。':
@@ -257,6 +264,9 @@ function performanceChart(series,horizon) {
 }
 function explain() {
   const row=rows[Number($('decisionTrial').value)-1];
+  $('estimateCaption').textContent=row?'第 '+row.i+' 轮后的累计证据。误差线表示 95% 等尾可信区间。':
+    '运行后可按试次查看累计证据；未测试的档位暂无估计。';
+  $('bayesProfile').innerHTML=renderBayesian(bayesianReport(row?.result.next.bank??current.bank,true),true);
   if(!row) {$('explanation').textContent='等待首轮数据。';return;}
   const {i,s,result:r}=row;
   const evidence=r.evidenceTrials.map(trial=>rows[trial-1]);
@@ -265,12 +275,39 @@ function explain() {
   $('explanation').innerHTML='<strong>'+decisions[r.decision]+'</strong><dl>'+
     '<dt>本组证据</dt><dd>'+r.v+' / '+config.window+' 次有效，'+r.k+' 次完整正确'+(detail?'<br>'+detail:'')+'</dd>'+
     '<dt>本轮任务</dt><dd>L'+s.level+' · '+s.n+' 道菜</dd>'+
+    (r.probabilityEvidence?'<dt>窗口后验</dt><dd>Beta('+r.probabilityEvidence.alpha+','+r.probabilityEvidence.beta+
+      ') · 升 '+r.probabilityEvidence.upgrade.toFixed(4)+' · 降 '+r.probabilityEvidence.downgrade.toFixed(4)+'</dd>':'')+
     '<dt>本关建议</dt><dd>'+r.candidate+' 道菜</dd><dt>实际下一轮</dt><dd>'+next+'</dd></dl><p>'+row.reason+'</p>'+
     (r.advance?(r.evidenceStatus==='INCOMPLETE_AT_CHAPTER_CAP'?'<p class="muted">额外轮次达上限。未满组证据已记入日志，下一关沿用当前菜数。</p>':
       '<p class="muted">达到最低提交配额，证据组已结算或为空。下一关沿用本轮决策后的菜数。</p>'):
       r.gameCompleted?'<p class="muted">L4 达到最低提交配额。'+(r.evidenceStatus==='INCOMPLETE_AT_END'?'证据未满组，已保留轮次与计数。':'')+'</p>':
       r.quotaReached?'<p class="muted">已达到最低提交配额，正在等待当前证据组结算。</p>':'')+
     (r.pauseReason?'<p class="muted">此轮后因连续排除试次暂停。</p>':'');
+}
+function renderBayesian(report,showMatch) {
+  const y=p=>156-128*p, x=n=>70+130*(n-2);
+  const range='<rect x="70" y="'+y(BAYES.upper)+'" width="390" height="'+(y(BAYES.lower)-y(BAYES.upper))+'" fill="#e6f2e9"/>';
+  const ticks=[0,.5,1].map(p=>'<text x="9" y="'+(y(p)+4)+'">'+percent(p)+'</text><path d="M70 '+y(p)+'H460" stroke="#d7e1d6"/>').join('');
+  const marks=report.curve.map((row,i)=>{
+    const n=row.size, px=x(n);
+    const axis='<text x="'+px+'" y="185" text-anchor="middle">'+n+' 道</text>';
+    if(row.mean===null) return axis;
+    const [lower,upper]=row.interval95, lo=y(lower),hi=y(upper);
+    const next=report.curve[i+1];
+    const line=next&&next.mean!==null?'<path d="M'+px+' '+y(row.mean)+' L'+x(next.size)+' '+y(next.mean)+'" stroke="#2c7b63" stroke-width="2"/>':'';
+    return axis+line+'<path d="M'+px+' '+hi+'V'+lo+' M'+(px-5)+' '+hi+'h10 M'+(px-5)+' '+lo+'h10" stroke="#174c40" stroke-width="2"/>'+
+      '<circle cx="'+px+'" cy="'+y(row.mean)+'" r="4" fill="#174c40"/>';
+  }).join('');
+  const r=report.recommendation;
+  const description='<p>可支持的最高档 '+(report.supportedSize===null?'证据不足':report.supportedSize+' 道')+' · '+
+    (showMatch?(r?'目标匹配 '+r.size+' 道（估计 '+percent(r.mean)+(r.inBand?'，在目标区间内':'，在目标区间外')+'）':'目标匹配待补证据，当前菜数先保留。'):
+      '最终推荐暂不发布。')+'</p>';
+  return description+'<div class="chart"><svg viewBox="0 0 510 198" role="img" aria-label="四档后验均值、95% 可信区间和 60–80% 目标带">'+
+    range+ticks+'<path d="M70 '+y(BAYES.target)+'H460" stroke="#67917f" stroke-dasharray="5 5"/>'+marks+'</svg></div>'+
+    studyTable(['难度','完整正确／有效','后验分布','成功率估计','95% 可信区间','P(p≥60%)','匹配资格'],report.curve.map(row=>[
+      row.size+' 道',row.correct+'/'+row.total,row.total?'Beta('+row.alpha+','+row.beta+')':'未测试',
+      percent(row.mean),row.interval95?row.interval95.map(percent).join('–'):'—',percent(row.support),
+      row.total>=BAYES.minPerSize?'已达':row.total?'初步观察':'未测试']));
 }
 function updateTrajectory() {
   $('trajectory').innerHTML=chart(rows,Math.max(8,rows.length),true);
@@ -510,6 +547,19 @@ function renderValidation(data,calibration,cooldown) {
         num(s.meanRecommendationShift)];}))+'</details>';
 }
 $('studyExport').onclick=()=>{if(study) downloadJSON(study,'old-master-'+study.study+'.json');};
+$('bayesCompare').onclick=()=>{
+  const settings=studySettings();
+  if(!settings) return;
+  const data=compareBayesianPolicies(config,settings);
+  study={...data,study:'bayes_policy_comparison',simulationMode:'seeded_probability',rngVersion:RNG_VERSION,model:BAYES};
+  $('studyResults').innerHTML='<h3>固定难度与两种自适应规则对照</h3>'+
+    '<p class="muted">每行 100 个种子。目标偏差用模拟真值计算，只纳入形成推荐的运行。MAE 使用同一后验估计，先对每次运行已测档位平均，再对运行平均。众数占比仅统计有推荐的运行。首个达标轮以有效试次数表示，完整实验仍运行到 60 次。</p>'+
+    studyTable(['画像','方案','目标偏差（百分点）','估计 MAE（百分点）','平均反向','推荐众数占比','首个证据达标轮','证据不足率','推荐 2 / 3 / 4 / 5 道'],
+      data.conditions.map(({profile,arm,summary:s})=>['ABCD'[profile],arm,points(s.targetDeviation),points(s.mae),
+        num(s.reversals),percent(s.modalShare),num(s.firstReportable),percent(1-s.coverage),
+        DIFFICULTIES.map(n=>s.distribution[n]).join(' / ')]));
+  $('studyExport').disabled=false;
+};
 populate(config);
 setupProfiles();
 invalidateComparison();
