@@ -1,6 +1,6 @@
 # 中华老当家数值策划 MVP
 
-进入本目录的 `index.html` 即可打开便当试玩和四画像模拟。用静态服务器从仓库根目录提供文件即可运行，项目没有运行时依赖。验收命令为 `node chinese-old-master-mvp/verify.mjs`（Node.js 20 或以上）。试玩与模拟共用同一个数值模块，未修改社区参与者应用。
+进入本目录的 `index.html` 即可打开便当试玩。用静态服务器从仓库根目录提供文件即可运行，项目没有运行时依赖。验收命令为 `node chinese-old-master-mvp/verify.mjs`（Node.js 20 或以上）。四画像回归通过验收脚本执行。在线数值研究使用独立的 [V1.8 数值模拟器](../chinese-old-master-simulator-v18/)。
 
 ## 冻结规则
 

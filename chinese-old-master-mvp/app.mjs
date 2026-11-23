@@ -1,10 +1,9 @@
 import {RULES,CHAPTERS,SPEAKERS,resume,terminate} from './model.mjs';
-import {PROFILES,simulate} from './simulation.mjs';
 import {STORAGE_KEY,newSession,prepare,record,restore} from './session.mjs';
 
 const $=id=>document.getElementById(id);
 const reportNames={COMPLETED:'正常完成',INSUFFICIENT:'证据不足',ABNORMAL:'异常终止'};
-let session=newSession(),timer,phase='ready',answerStart=0,runs=[],otherTab=false;
+let session=newSession(),timer,phase='ready',answerStart=0,otherTab=false;
 function save(next) {
   session=next;
   try {
@@ -164,45 +163,5 @@ $('reset').onclick=()=>{
   $('feedback').textContent='';$('stage').textContent='准备好后开始订单';paint();
 };
 $('export').onclick=()=>download('old-master-mvp-play.json',{rules:RULES,...session,metrics:stats(session.state)});
-function view(isGame) {
-  $('game').hidden=!isGame;$('simulation').hidden=isGame;
-  $('gameView').setAttribute('aria-pressed',String(isGame));$('simView').setAttribute('aria-pressed',String(!isGame));
-}
-$('gameView').onclick=()=>view(true);$('simView').onclick=()=>view(false);
-function showTrajectory(s) {
-  const el=document.createElement('div');
-  const position=(i,n)=>[40+i*660/Math.max(1,s.trials.length-1),112-30*(n-2)];
-  const guides=[2,3,4,5].map(n=>{
-    const [,y]=position(0,n);
-    return '<text x="6" y="'+(y+4)+'" fill="#43605a">'+n+'</text><path d="M40 '+y+'H700" stroke="#d7e1d6"/>';
-  }).join('');
-  const points=s.trials.map((r,i)=>position(i,r.size).join(',')).join(' ');
-  el.innerHTML='<svg viewBox="0 0 720 146" width="100%" role="img" aria-label="横轴为试次轮次、纵轴为实际菜数">'+
-    guides+'<polyline points="'+points+'" fill="none" stroke="#19594b" stroke-width="3"/>'+
-    '<text x="340" y="139" fill="#43605a">试次轮次</text></svg>';
-  return el;
-}
-function showSimulation() {
-  const s=runs[Number($('inspect').value)];
-  $('simLog').replaceChildren(showTrajectory(s),log(s.trials));
-}
-$('simulate').onclick=()=>{
-  try {runs=PROFILES.map((_,i)=>simulate(i,$('seed').valueAsNumber));}
-  catch {$('simStatus').textContent='请输入 0 至 4294967295 的整数种子。';return;}
-  $('simStatus').textContent='本次使用种子 '+$('seed').valueAsNumber;
-  $('simExport').disabled=false;
-  $('simExport').onclick=()=>{
-    download('old-master-mvp-simulation.json',{rules:RULES,seed:runsSeed,profiles:PROFILES.map((p,i)=>({profile:p,...runs[i],metrics:stats(runs[i])}))});
-  };
-  const runsSeed=$('seed').valueAsNumber;
-  $('simResults').replaceChildren(table(['画像','尝试','完整正确／有效','实升／实降','触及下限保持','结果'],runs.map((s,i)=>{
-    const m=stats(s);
-    return [PROFILES[i].name,m.attempts,m.exact+'/'+m.valid,m.up+'/'+m.down,m.floorHolds,reportNames[s.report.status]+
-      (s.report.recommendedSize?' · '+s.report.recommendedSize+' 道':'')];
-  })));
-  $('inspect').replaceChildren(...PROFILES.map((p,i)=>new Option(p.name,String(i))));
-  $('inspectLabel').hidden=false;showSimulation();
-};
-$('inspect').onchange=showSimulation;
 paint();
 

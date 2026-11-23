@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>中华老当家 自适应数值模拟器 V1.8</title>
+<style>
+:root{color-scheme:light;--ink:#193a33;--muted:#4b635d;--paper:#f7f6ef;--line:#d7e1d6;--green:#19594b;--rust:#a64e30}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.55 "Microsoft YaHei","PingFang SC",sans-serif}
+main{width:min(1250px,calc(100% - 32px));margin:auto;padding:32px 0 48px}
+header{background:var(--green);border-radius:22px;padding:28px 34px;color:#fff;position:relative;overflow:hidden}
+header p{margin:4px 0;color:#e1eee6}h1{font-family:SimSun,serif;font-size:clamp(2.25rem,6vw,3.75rem);line-height:1.12;margin:7px 0 10px}
+h2{font-size:1.23rem;margin:0 0 10px}h3{margin:12px 0 6px}
+.story{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:16px 0}
+.chapter{border:1px solid var(--line);background:#fff;border-radius:12px;padding:10px 14px}.chapter strong{display:block}
+.chapter[aria-current=step]{background:#d9eddf;border-color:#43806e}.chapter small{color:var(--muted)}
+.layout{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(330px,1fr);gap:16px;align-items:start}
+.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:16px}
+.toolbar,.flex{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+button,select,input{font:inherit;color:inherit;border:1px solid #7e9a90;border-radius:8px;background:#fff;padding:7px 11px;min-height:42px}
+button{cursor:pointer;font-weight:700}button:hover:not(:disabled){background:#e7f3e9}button.primary{background:var(--green);color:#fff;border-color:var(--green)}button.primary:hover:not(:disabled){background:#114336}
+button:disabled{opacity:.5;cursor:default}button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid #c67436;outline-offset:2px}
+input[type=number]{width:100%;min-width:0}label{display:block;font-size:.9rem}label input,label select{display:block;margin-top:3px}
+.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:11px 0}
+.levelfields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;align-items:center;margin:10px 0}
+.state{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:16px 0}
+.stat{background:#eef4ec;border-radius:10px;padding:9px;font-size:.82rem;color:var(--muted)}.stat b{display:block;font-size:1.32rem;color:var(--ink)}
+.stage{border:1px solid #e3d2ba;background:#fcf4e7;border-radius:12px;padding:14px;margin-top:12px}
+#stimulus{font-size:1.55rem;min-height:42px;color:#7b3a23;font-weight:700}.dish{margin:2px}
+summary{cursor:pointer;font-weight:700}.muted{color:var(--muted);font-size:.9rem}.message{min-height:28px;color:#804222;font-weight:700}
+.scroll{overflow:auto;max-height:410px}.log th{position:sticky;top:0;background:#eaf2e9}
+table{border-collapse:collapse;width:100%;font-size:.88rem;white-space:nowrap}th,td{padding:7px 9px;border-bottom:1px solid var(--line);text-align:left}tbody tr:nth-child(even){background:#f6f9f5}
+.loghead{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.loghead h2{margin:0}
+details p{margin:.65em 0}.notes{font-size:.93rem}
+@media(max-width:850px){.layout{grid-template-columns:1fr}.story{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:460px){header{padding:20px}.card{padding:13px}.state{grid-template-columns:repeat(2,1fr)}}
+[hidden]{display:none!important}.tabs{display:flex;gap:8px;margin:16px 0}.tabs [aria-pressed=true]{background:var(--green);color:white}
+.hero{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:16px}
+.hero .stat{border:1px solid var(--line);background:white;font-size:.88rem;min-width:0}.hero .stat b{font-size:clamp(1rem,2.15vw,1.55rem)}
+.analysis{display:grid;grid-template-columns:minmax(0,1.85fr) minmax(290px,1fr);gap:16px;align-items:start}
+.chart{min-height:185px}.chart svg{display:block;width:100%;height:auto;max-height:360px}.chart text{font-family:inherit;fill:var(--muted);font-size:13px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;color:var(--muted);font-size:.88rem;margin-top:8px}.legend b{color:var(--ink)}
+.decision-box{border-left:4px solid #528173;background:#eef5ef;padding:10px 14px;border-radius:5px;margin:10px 0}.decision-box strong{font-size:1.15rem}
+.decision-box dl{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:10px 0}.decision-box dt{color:var(--muted)}.decision-box dd{margin:0;overflow-wrap:anywhere}
+.compact{margin-top:12px}.profile-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:14px}.profile{border:1px solid var(--line);padding:14px;border-radius:12px}.profile h3{margin:0}
+.profile .chart{min-height:0}.profile-settings{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin:9px 0}.profile label{margin-bottom:5px}
+.pill{display:inline-block;border:1px solid var(--line);border-radius:20px;padding:3px 10px;font-size:.86rem}.chart-help{margin-bottom:0}
+@media(max-width:850px){.analysis,.profile-grid{grid-template-columns:1fr}.hero{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:460px){.hero{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<main>
+<header><p>家庭厨房 / 数值原型 V1.8</p><h1>中华老当家</h1><p>自适应模拟控制台 · 所有阈值和菜数待预测试验证</p></header>
+<section id="startupNotice" class="card" role="status" style="margin-top:16px">
+<strong>模拟器尚未启动</strong>
+<p>如果这条提示一直显示，请刷新页面，并确认浏览器允许此站点运行 JavaScript。</p>
+</section>
+<div id="interactiveApp" hidden>
+<nav class="tabs" aria-label="模拟视图">
+<button id="consoleTab" aria-pressed="true" aria-controls="consoleView">模拟控制台</button>
+<button id="compareTab" aria-pressed="false" aria-controls="compareView">参与者模拟</button>
+</nav>
+<div id="consoleView">
+<nav id="story" class="story" aria-label="剧情进度"></nav>
+<div id="state" class="hero" aria-label="参与者表现概览"></div>
+<section id="assessmentReport" class="card" aria-live="polite" hidden></section>
+<section class="card">
+<h2>试次模拟</h2>
+<p id="quotaProgress" class="muted"></p>
+<p id="evidenceProgress" class="muted"></p>
+<div class="toolbar">
+<select id="mode" aria-label="模拟模式"><option value="baseline">基准脚本</option><option value="probability">概率随机模拟</option><option value="manual">手动录入</option></select>
+<select id="profile" aria-label="虚拟参与者"><option value="0">A · 稳定高表现</option><option value="1">B · 中等，高难度困难</option><option value="2">C · 低起点表现</option><option value="3">D · 波动表现</option></select>
+<button id="reset">重置当前运行</button>
+<button id="resume" class="primary" hidden>继续测验</button>
+<span id="performanceLabel" class="pill" hidden></span>
+</div>
+<div id="probControls" class="toolbar" hidden><label>本次种子<input id="consoleSeed" type="number" min="0" max="4294967295" step="1" value="541"></label><button id="applySeed">应用种子并重跑</button><button id="editRates">编辑各菜数概率</button></div>
+<div id="auto" class="toolbar"><button class="primary" id="single">运行下一轮</button><button id="all">运行至剧情结束</button></div>
+<div id="manual" hidden>
+<div class="fields">
+<label>试次状态<select id="status"><option value="SUBMIT">独立提交</option><option value="HINT">有提示提交</option><option value="ABORT">中止</option><option value="TECH">设备或操作异常</option></select></label>
+<label>撤销次数<input id="undos" type="number" min="0" step="1" value="0"></label>
+<label>提交完成率 %<input id="items" type="number" min="0" max="100" step="any" placeholder="例如 100"></label>
+<label>位置正确率 %<input id="hits" type="number" min="0" max="100" step="any" placeholder="例如 67"></label>
+</div><p id="rateHelp" class="muted"></p><button id="record" class="primary">记录试次</button>
+</div>
+<p id="message" class="message" role="status"></p>
+<details id="endControls"><summary>提前终止测评</summary><div class="toolbar">
+<label>终止原因<select id="terminationReason"><option value="WITHDRAWAL">参与者退出</option><option value="TECHNICAL_ISSUE">设备故障</option><option value="OTHER">其他原因</option></select></label><button id="terminate">记录并结束</button>
+</div></details>
+</section>
+<div class="analysis">
+<section class="card"><h2>当前参与者的难度轨迹</h2>
+<div id="trajectory" class="chart"></div>
+<div class="legend"><span>▲ 升级</span><span>▼ 降级</span><span>■ 普通保持</span><span>◆ 下限保持</span><span>◇ 上限保持</span><span>△ 冷却保持</span><span>○ 累计中</span><span>× 排除</span><span>◎ 采用最近完整组</span><span>! 结尾证据不足</span><span><b>虚线</b> 剧情换关</span></div>
+<p class="muted chart-help">点位表示该轮实际菜数，标记表示该轮结束时的决策。点选标记可查看原因。</p>
+</section>
+<section class="card"><h2>自适应决策解释</h2>
+<label>查看试次<select id="decisionTrial" aria-label="查看试次"></select></label>
+<div id="explanation" class="decision-box"></div>
+</section>
+</div>
+<section class="card"><h2>表现轨迹</h2><div id="performanceChart" class="chart"></div><p class="muted">✓ 完整正确 · × 有效但错误 · ◇ 排除。滚动 5 次有效试次正确率从第 5 次有效试次开始。顶部数字为已结算证据组的正确次数 / 有效次数。</p></section>
+<details class="card"><summary>调整共用规则与任务参数</summary><p class="muted">参数应用后，控制台从 L1 重新开始。所有数值均为暂定模拟假设。</p>
+<form id="parameterForm"><div id="parameters" class="fields"></div><div id="levelFields" class="levelfields"></div>
+<div class="toolbar"><button class="primary" type="submit">应用并重置</button><button id="restore" type="button">恢复默认值</button></div>
+</form><p id="paramMessage" class="message" role="status"></p></details>
+<section class="card">
+<div class="loghead"><h2>试次日志</h2><button id="export">下载日志 JSON</button></div>
+<p id="summary" class="muted"></p>
+<div class="scroll" tabindex="0" aria-label="试次日志滚动区"><table class="log"><thead><tr>
+<th>轮次</th><th>剧情</th><th>菜数</th><th>状态</th><th>适配有效</th><th>排除原因</th><th>计入剧情配额</th><th>提交完成率</th><th>位置正确率</th><th>完整正确</th><th>有效 / 正确</th><th>决策</th><th>决策后菜数</th><th>下轮剧情 / 菜数</th><th>撤销</th><th>XP</th><th>星级</th>
+</tr></thead><tbody id="log"></tbody></table></div>
+</section>
+</div>
+<section id="compareView" class="card" hidden>
+<h2>当前模拟配置</h2>
+<p class="muted">每张卡片单独选择基准脚本或概率模式。种子只对已启用概率模式的卡片生效。</p>
+<div class="toolbar"><label>随机种子<input id="seed" type="number" min="0" max="4294967295" step="1" value="42"></label><button id="compareRun" class="primary">运行并对比四人</button><button id="compareReset">恢复画像默认值</button><button id="compareExport">下载四组 JSON</button></div>
+<p id="compareStatus" class="message" role="status"></p>
+<div id="profiles" class="profile-grid"></div>
+<p class="muted">实际升降以本轮菜数与下一轮菜数比较，末轮不计。相邻两次实际调整方向相反即为反向，跨关也计入；两次调整的累计有效试次编号相差不超过 3 时为快速反向。冷却将在指定的完整组内实际阻止反向改变菜数。</p>
+<section class="card">
+<h2>重复验证配置</h2>
+<div class="toolbar"><button id="repeatRun">复跑种子 541 两次</button><button id="pairedRun">对照种子 541 与 542</button><label>批测口径<select id="batchProtocol"><option value="story">完整剧情流程</option><option value="valid60">固定 60 次有效试次</option><option value="groups10">固定 10 个完整证据组</option></select></label><button id="batchRun">运行每组 100 个种子</button><button id="studyExport" disabled>下载验证 JSON</button></div>
+<p class="muted">四组均重新使用概率模式，读取卡片中的菜数概率。验证独立运行，不使用上方卡片的运行结果或种子。D 的时间波动须在 D 卡片的概率模式中启用。批测使用种子 1–100，比较 3、4、5 次证据窗口和 3 次窗口加 1 组反向冷却。</p>
+<p class="muted">完整剧情检验收尾能否形成判断。固定 60 次检验相同试次暴露下的行为。固定 10 组检验相同决策机会下的行为。后两种不设剧情，固定 10 组默认最低有效门槛为实验用 30 次，正常剧情默认 32 次。</p>
+<div id="studyResults" aria-live="polite"></div>
+</section>
+</section>
+<details class="card notes"><summary>规则、合成数据与限制</summary>
+<p>剧情固定为 L1–L4。四关共用菜数范围，换关沿用本轮决策后的菜数。每关默认最低提交配额为 8 次合法剧情提交。L1–L3 达到最低配额后，如证据组未满，留在原关直到结算，章节提交数可超过 8 次。L4 达到最低配额即结束，未满组的证据保留在日志中。每份订单只有一位点单人，L4 由奶奶代表全家。</p>
+<p>L1–L3 达到最低配额后，默认最多再尝试 12 轮（含排除轮）。若到上限时本组仍未满，保留证据记录，沿用菜数进入下一关。暂停规则继续生效。</p>
+<p>独立且至少提交一道菜的合法试次计入自适应。提示后合法提交计入剧情配额，中止、异常及非法输入不计入。连续 3 轮未计入自适应证据时默认暂停，保留记录、剧情进度和当前证据组，可手动继续。若该轮已完成 L4，直接结束。</p>
+<p>最终判断默认需要累计至少 32 次有效试次，以及最近一次实际调难后在同一菜数完成至少 1 个完整组。两个门槛均可调整。若未调难，从起始难度开始累计。收尾未满组保留在日志，不进入最终判断，也不追加试次。推荐采用最近完整组已经测试的菜数，规则提出的未验证下一难度作为后续试做建议单列。提示后提交只计剧情配额。暂停后可继续，提前结束时另记异常终止原因。</p>
+<p>完整正确次数落在两阈值之间时普通保持。达到降级条件但已达全局下限时记录下限保持，达到升级条件但已达全局上限时记录上限保持。每组结算后清空该组证据。</p>
+<p>提交完成率为已提交菜数 ÷ 目标菜数。位置正确率为正确位置数 ÷ 目标菜数。位置全对即完整正确；完整序列正确率为完整正确的有效试次数 ÷ 有效试次数。</p>
+<p>基准画像均为合成脚本。中等画像在四道及以上出错；低起点画像约每五次正确一次；波动画像按六轮周期变化。也可为每个菜数单独设置完整正确的概率，固定种子可复现同一输入。两种模式均在第 5、12、19 次模拟中止、提示提交和异常。模拟与手动录入保留提交分数和状态。</p>
+<p>D 的时间波动可在概率模式单独启用。系统在原菜数概率上叠加轮次偏移，模拟孤立低谷、持续低谷、恢复和交替高低表现。JSON 记录当轮使用的概率、随机抽样值和阶段。</p>
+<p>模拟与手动记录均在浏览器中处理，未上传到站点。专用于虚拟测试。切换模式、应用参数或刷新前可下载日志。阈值、任务长度、时序和奖励均未验证，不用于诊断、能力分级或推断训练效果。</p>
+</details>
+</div>
+</main>
+<script src="./model.js" defer></script>
+<script src="./research.js" defer></script>
+<script src="./app.js" defer></script>
+</body>
+</html>
+
