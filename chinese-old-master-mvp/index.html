@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>中华老当家 数值策划 MVP</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body><main>
+  <header><p class="eyebrow">数值策划 MVP 1.0</p><h1>中华老当家</h1><p>记住菜品的出场顺序，再按原顺序装进便当。</p></header>
+  <nav aria-label="视图"><button id="gameView" aria-pressed="true">便当试玩</button><button id="simView" aria-pressed="false">数值模拟</button></nav>
+  <section id="game">
+    <div id="chapters" class="chapters" aria-label="剧情进度"></div>
+    <article class="card">
+      <div class="state"><strong id="order"></strong><span id="progress"></span></div>
+      <p id="storage" class="small" role="status"></p>
+      <p id="feedback" role="status"></p>
+      <div id="stage" class="stage" aria-live="polite">准备好后开始订单</div>
+      <div id="choices" class="actions"></div>
+      <p id="answer"></p>
+      <div class="actions">
+        <button id="begin" class="primary">开始订单</button>
+        <button id="undo" hidden>撤销</button><button id="hint" hidden>查看原顺序</button>
+        <button id="submit" class="primary" hidden>提交便当</button>
+        <button id="abort" hidden>中止本轮</button><button id="fault" hidden>记录设备异常</button>
+        <button id="resume" hidden>继续测评</button>
+      </div>
+      <p id="report" class="report" hidden></p>
+      <div class="actions end-actions">
+        <button id="export">下载试玩记录</button><button id="end">提前结束测评</button><button id="reset">开始新测评</button>
+      </div>
+    </article>
+    <details class="card"><summary>本次逐轮记录</summary><div id="gameLog"></div></details>
+  </section>
+  <section id="simulation" class="card" hidden>
+    <h2>四种合成画像</h2>
+    <p>参数已冻结。同一种子会重现完全相同的轨迹。</p>
+    <div class="actions"><label>随机种子 <input id="seed" type="number" min="0" max="4294967295" value="541"></label>
+      <button id="simulate" class="primary">运行四组</button><button id="simExport" disabled>下载模拟记录</button></div>
+    <p id="simStatus" role="status"></p><div id="simResults"></div>
+    <label id="inspectLabel" hidden>查看画像 <select id="inspect"></select></label><div id="simLog"></div>
+  </section>
+  <details class="card"><summary>使用范围</summary><p>本页面用于数值验收和试玩。记录保存在当前浏览器。规则是原型参数，适切性和测量效度仍待真实预测试。</p></details>
+</main><script type="module" src="app.mjs"></script></body>
+</html>
+
