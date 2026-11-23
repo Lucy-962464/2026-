@@ -57,16 +57,19 @@ function stats(s) {
   return {attempts:s.trials.length,valid:s.valid,exact,up,down,
     floorHolds:s.trials.filter(r=>r.decision==='MIN').length,ceilingHolds:s.trials.filter(r=>r.decision==='MAX').length};
 }
-function reportText(r) {
+function reportText(r,s) {
   if(!r) return '';
   if(r.recommendedSize===null) return reportNames[r.status]+'。'+r.reasons.join('；')+
     (r.deferred.length?'。保留第 '+r.deferred.map(x=>x.trial).join('、')+' 轮。':'。');
   const e=r.evidence;
+  const floorHolds=s.trials.filter(row=>row.decision==='MIN').length;
+  const floorNote=e.size===RULES.min&&floorHolds>0?
+    '本次有 '+floorHolds+' 组在 2 道菜仍达到降级条件，需人工复核最低难度是否适宜。':'';
   return '正常完成。建议继续试做 '+r.recommendedSize+' 道菜。证据为第 '+e.trials.join('、')+
     ' 轮，'+e.correct+'/'+e.trials.length+' 完整正确。'+
     (r.deferred.length?'收尾第 '+r.deferred.map(x=>x.trial).join('、')+' 轮已保留，未纳入。':'')+
     (r.suggestedProbe?'规则另提出试做 '+r.suggestedProbe+' 道菜。':'')+
-    (e.correct<=RULES.down&&e.size===RULES.min?'已达下限，当前表现仍困难，需人工复核任务适宜性。':'');
+    floorNote;
 }
 function paint() {
   const {state:s,task}=session;
@@ -89,7 +92,7 @@ function paint() {
   $('end').disabled=done||otherTab;
   $('reset').disabled=otherTab;
   $('report').hidden=!done;
-  $('report').textContent=reportText(s.report);
+  $('report').textContent=reportText(s.report,s);
   $('answer').textContent=answering?'已选：'+(task.answer.join(' → ')||'—'):'';
   $('choices').replaceChildren();
   if(answering) for(const dish of task.choices) {
