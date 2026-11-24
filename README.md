@@ -3,6 +3,7 @@
 ## 在线打开
 
 - [打开《中华老当家》数学模型 V1.9.1 数值模拟器](https://lucy-962464.github.io/2026-/chinese-old-master-simulator-v18/)
+- [下载《中华老当家》V1.9.1 数值策划说明书（Word）](./chinese-old-master-simulator-v18/docs/%E4%B8%AD%E5%8D%8E%E8%80%81%E5%BD%93%E5%AE%B6%E6%95%B0%E5%80%BC%E7%AD%96%E5%88%92%E8%AF%B4%E6%98%8E%E4%B9%A6_%E6%95%B0%E5%AD%A6%E6%A8%A1%E5%9E%8BMVP1.9.1.docx)
 - [打开《中华老当家》便当试玩](https://lucy-962464.github.io/2026-/chinese-old-master-mvp/)
 
 V1.9.1 提供四档证据分级、目标匹配推荐、难度边界提示和证据门槛对照。便当试玩使用冻结的 MVP 规则，试玩进度保存在当前浏览器。
