@@ -4,7 +4,7 @@ import {
   hasFormalSession,viewRules,practiceResults,preparePractice,recordPractice,beginFormal
 } from './session.mjs?v=guide-1';
 
-import {isStudy,studyReady,studyKey,joinStudy,createStudySync} from './study.mjs?v=study-1';
+import {isStudy,studyReady,studyKey,joinStudy,createStudySync} from './study.mjs?v=study-2';
 
 const $=id=>document.getElementById(id);
 const STORAGE_KEY=studyKey?BASE_STORAGE_KEY+'/study/'+studyKey:BASE_STORAGE_KEY;

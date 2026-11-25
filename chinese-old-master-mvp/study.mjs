@@ -1,5 +1,5 @@
 // Set only the project URL and publishable key after the database migration is deployed.
-export const CLOUD_CONFIG=null;
+export const CLOUD_CONFIG=Object.freeze({"url":"https://ehirgsylcgkgdbjfzkcc.supabase.co","publishableKey":"sb_publishable_1TiZh6NMTy7PBSkEakmUPw_zd7Ut35U"});
 
 const studyToken=new URLSearchParams(location.hash.slice(1)).get('study');
 export const isStudy=studyToken!==null;
