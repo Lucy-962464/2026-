@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<title>中华老当家研究邀请文件</title>
+<style>
+body{background:#f7f7ef;color:#193a33;font:1.125rem/1.65 system-ui,sans-serif;margin:0}
+main{max-width:650px;margin:6vh auto;padding:24px;background:white;border-radius:18px}
+label,input,button{display:block}input,button{font:inherit;padding:10px;margin-bottom:16px;border:1px solid #72958a;border-radius:8px}
+input{width:100%;max-width:36rem;box-sizing:border-box}button{background:#19594b;color:white;cursor:pointer}
+</style>
+<main>
+<h1>生成被试邀请 HTML</h1>
+<p>填写研究编号和对应的专属邀请码。页面会在本机生成一个 HTML 文件，发给该位被试即可。</p>
+<form id="maker">
+<label for="code">研究编号</label>
+<input id="code" required pattern="[A-Z]{1,4}[0-9]{3,8}" maxlength="12" autocomplete="off" placeholder="P001">
+<label for="invite">邀请码</label>
+<input id="invite" required pattern="[0-9a-f]{64}" maxlength="64" autocomplete="off" spellcheck="false">
+<button>下载邀请 HTML</button>
+</form>
+<output id="result" role="status"></output>
+</main>
+<script>
+document.getElementById('maker').onsubmit=event=>{
+  event.preventDefault();
+  const code=document.getElementById('code').value;
+  const token=document.getElementById('invite').value;
+  if(!/^[A-Z]{1,4}[0-9]{3,8}$/.test(code)||!/^[a-f0-9]{64}$/.test(token)) return;
+  const link='https://lucy-962464.github.io/2026-/chinese-old-master-mvp/#study='+token;
+  const html='<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>中华老当家｜便当试玩</title><meta http-equiv="refresh" content="0; url='+link+'"><body style="margin:8vh auto;max-width:650px;padding:24px;font:22px/1.6 system-ui;color:#193a33"><h1>中华老当家</h1><p>正在打开便当试玩。如果页面没有自动跳转，请点击下方入口。</p><a style="display:inline-block;padding:12px 22px;background:#19594b;color:white;border-radius:8px" rel="noreferrer" href="'+link+'">打开便当试玩</a></body></html>';
+  const url=URL.createObjectURL(new Blob([html],{type:'text/html;charset=utf-8'}));
+  const file=document.createElement('a');
+  file.href=url;
+  file.download='中华老当家_'+code+'.html';
+  file.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  document.getElementById('invite').value='';
+  document.getElementById('result').textContent='邀请文件已生成。';
+};
+</script>
+</html>

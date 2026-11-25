@@ -1,10 +1,21 @@
 import {RULES,CHAPTERS,SPEAKERS,resume,terminate} from './model.mjs';
 import {
-  ARCHIVE_PREFIX,STORAGE_KEY,PRACTICE_LIMIT,newSession,prepare,record,restore,
+  ARCHIVE_PREFIX,STORAGE_KEY as BASE_STORAGE_KEY,PRACTICE_LIMIT,newSession,prepare,record,restore,
   hasFormalSession,viewRules,practiceResults,preparePractice,recordPractice,beginFormal
 } from './session.mjs?v=guide-1';
 
+import {isStudy,studyReady,studyKey,joinStudy,createStudySync} from './study.mjs?v=study-1';
+
 const $=id=>document.getElementById(id);
+const STORAGE_KEY=studyKey?BASE_STORAGE_KEY+'/study/'+studyKey:BASE_STORAGE_KEY;
+const setStudyStatus=message=>{
+  $('study-status').hidden=!message||!session.studyConsentAt;
+  $('study-status').textContent=message;
+  if(!session.studyConsentAt) $('study-entry-status').textContent=message;
+};
+const syncStudy=studyReady?createStudySync(STORAGE_KEY,setStudyStatus):null;
+let joiningStudy=false;
+$('study-info').hidden=!isStudy;
 const reportNames={COMPLETED:'正常完成',INSUFFICIENT:'证据不足',ABNORMAL:'异常终止'};
 const views={
   home:['home','home-title'],rules:['rules','rules-title'],
@@ -12,6 +23,7 @@ const views={
 };
 let session=newSession(),timer,phase='ready',answerStart=0,otherTab=false,view='home';
 let storageMessage='';
+if(isStudy&&!studyReady) setStudyStatus('研究链接尚未启用或已损坏，请联系研究人员。');
 const isPractice=()=>!hasFormalSession(session);
 const activeTask=()=>isPractice()?session.onboarding.task:session.task;
 const needArchive=()=>hasFormalSession(session)||session.onboarding.attempts.length>0;
@@ -28,15 +40,16 @@ function save(next) {
   } catch {
     storageMessage='此浏览器无法保存进度。请在关闭前下载记录。';
   }
+  syncStudy?.(session);
 }
 try {
-  const previous=localStorage.getItem(STORAGE_KEY);
+  const previous=isStudy&&!studyReady?null:localStorage.getItem(STORAGE_KEY);
   if(previous) {
     const snapshot=JSON.parse(previous);
     const interrupted=Boolean(snapshot.task||snapshot.onboarding?.task);
     save(restore(previous));
     $('feedback').textContent=interrupted?'已恢复进度。中断订单已记为排除试次。':'已恢复进度。';
-  } else save(session);
+  } else if(!isStudy||studyReady) save(session);
 } catch {
   storageMessage='存档无法读取。可用当前页面开始新测评。';
 }
@@ -91,8 +104,11 @@ function paint() {
   for(const [name,[id]] of Object.entries(views)) $(id).hidden=name!==view;
   const practice=isPractice(),completed=practiceResults(session);
   $('home-start').textContent=!practice?'继续正式游戏':completed.length?'查看练习结果':'开始游戏';
-  $('home-start').disabled=$('home-rules').disabled=$('rules-practice').disabled=otherTab;
-  $('home-reset').hidden=view==='game'&&!practice||!needArchive();
+  $('home-start').disabled=otherTab||joiningStudy||(isStudy&&!studyReady);
+  $('home-rules').disabled=$('rules-practice').disabled=otherTab||joiningStudy;
+  $('study-info').hidden=!isStudy||Boolean(session.studyConsentAt);
+  $('study-consent-label').hidden=!studyReady;
+  $('home-reset').hidden=isStudy||view==='game'&&!practice||!needArchive();
   $('home-reset').disabled=otherTab;
   $('home-status').textContent=storageMessage;
   $('rules-practice').textContent=!practice?'继续正式游戏':completed.length?'查看练习结果':'我知道了，开始练习';
@@ -133,6 +149,7 @@ function paint() {
   $('submit').textContent=!practice&&task&&task.answer.length<s.size?'提交当前顺序（未选满）':'提交便当';
   $('end').disabled=done||otherTab;
   $('reset').disabled=otherTab;
+  $('reset').hidden=isStudy;
   $('report').hidden=!done;
   $('report').textContent=reportText(s.report,s);
   const answer=$('answer');
@@ -227,11 +244,41 @@ function enterGame() {
 }
 function openRules() {
   if(otherTab) return;
-  if(!session.onboarding.rulesViewedAt) save(viewRules(session));
+  if((!isStudy||session.studyConsentAt)&&!session.onboarding.rulesViewedAt) save(viewRules(session));
   display('rules');
 }
-function continueGame() {
-  if(otherTab) return;
+async function ensureStudyJoined() {
+  if(!isStudy||session.studyConsentAt) return true;
+  if(!studyReady||joiningStudy) return false;
+  if(!$('study-consent').checked) {
+    setStudyStatus('请先阅读并勾选上方说明。');
+    $('study-consent').focus();
+    return false;
+  }
+  try {
+    localStorage.setItem(STORAGE_KEY,JSON.stringify(session));
+  } catch {
+    setStudyStatus('此浏览器无法保留试玩进度，请联系研究人员。');
+    return false;
+  }
+  joiningStudy=true;
+  setStudyStatus('正在核对本次研究链接…');
+  paint();
+  try {
+    await joinStudy(session.id);
+    if(otherTab) return false;
+    save({...session,studyConsentAt:new Date().toISOString()});
+    return true;
+  } catch(error) {
+    setStudyStatus(error.permanent?'研究链接无法使用，请联系研究人员。':'暂时无法连接，请联网后再点开始。');
+    return false;
+  } finally {
+    joiningStudy=false;
+    paint();
+  }
+}
+async function continueGame() {
+  if(otherTab||!await ensureStudyJoined()) return;
   if(!isPractice()) enterGame();
   else if(practiceResults(session).length) display('practiceComplete');
   else openRules();
@@ -239,7 +286,9 @@ function continueGame() {
 $('home-start').onclick=continueGame;
 $('home-rules').onclick=openRules;
 $('rules-back').onclick=()=>display('home');
-$('rules-practice').onclick=()=>{
+$('rules-practice').onclick=async ()=>{
+  if(!await ensureStudyJoined()) return;
+  if(!session.onboarding.rulesViewedAt) save(viewRules(session));
   if(isPractice()&&!practiceResults(session).length) startOrder(true);
   else continueGame();
 };
@@ -269,7 +318,7 @@ function exportSession(item) {
   return {...item,rules:RULES,state:{...state,trials:state.trials.map(row=>({...row,mode:'formal'}))},metrics:stats(state)};
 }
 function resetSession() {
-  if(otherTab) return;
+  if(otherTab||isStudy) return;
   if(needArchive()) {
     if(!window.confirm('将本次记录存档，并为下一位重新开始？')) return;
     const archived=session.task?record(session,'INTERRUPTED'):
@@ -291,6 +340,7 @@ function resetSession() {
 }
 $('reset').onclick=$('home-reset').onclick=resetSession;
 $('export').onclick=()=>download('old-master-mvp-'+session.id+'.json',exportSession(session));
+if(isStudy) $('export-local').hidden=true;
 $('export-local').onclick=()=>{
   const records=new Map();
   try {

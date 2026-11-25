@@ -8,6 +8,12 @@
 </head>
 <body><main>
   <header><h1>中华老当家</h1></header>
+  <aside id="study-info" class="card" hidden>
+    <strong id="study-title">研究试玩</strong>
+    <p id="study-disclosure">本次试玩会保存菜品顺序、您的选择、提示与撤回操作、用时及关卡难度。研究团队使用研究编号整理记录。</p>
+    <label id="study-consent-label"><input type="checkbox" id="study-consent"> 我已了解，并同意保存本次试玩记录。</label>
+    <p id="study-entry-status" role="status"></p>
+  </aside>
   <section id="home" class="card entry" aria-labelledby="home-title">
     <h2 id="home-title" tabindex="-1">帮家人准备便当</h2>
     <p>记住菜品顺序，再按同样的顺序装盒。</p>
@@ -75,6 +81,7 @@
     </article>
     <details class="card" id="formal-log"><summary>本次逐轮记录</summary><div id="gameLog"></div></details>
   </section>
+  <p id="study-status" class="small" role="status" hidden></p>
   <details class="card">
     <summary>使用范围与本机记录</summary>
     <p>本页面用于便当试玩。练习和正式记录分别保存在当前浏览器。换设备或清除站点数据前，请下载所需记录。</p>
@@ -83,6 +90,6 @@
       <button id="home-reset" hidden>开始新测评</button>
     </div>
   </details>
-</main><script type="module" src="app.mjs?v=guide-1"></script></body>
+</main><script type="module" src="app.mjs?v=study-1"></script></body>
 </html>
 
