@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import {advance,orderFor,RULES,score,start,resume,terminate} from './model.mjs';
-import {newSession,prepare,record,restore} from './session.mjs';
+import {
+  newSession,prepare,record,restore,viewRules,preparePractice,recordPractice,beginFormal,hasFormalSession
+} from './session.mjs';
 import {PROFILES,simulate} from './simulation.mjs';
 
 const submit=(n,correct)=>({status:'SUBMIT',items:n,hits:correct?n:0});
@@ -79,3 +81,37 @@ const results=PROFILES.map((p,i)=>{
 console.log(JSON.stringify(results,null,2));
 console.log('PASS: profiles, replay, non-overlap, boundaries, reasons, final evidence, scoring, persistence, resume and interruption.');
 
+
+let onboarding=newSession();
+assert.equal(preparePractice(onboarding),onboarding);
+assert.equal(beginFormal(onboarding),onboarding);
+onboarding=preparePractice(viewRules(onboarding));
+assert.equal(onboarding.onboarding.task.target.length,2);
+const resumedPractice=restore(JSON.stringify(onboarding));
+assert.equal(resumedPractice.onboarding.attempts[0].status,'INTERRUPTED');
+assert.deepEqual(resumedPractice.state,start());
+onboarding.onboarding.task.answer=[...onboarding.onboarding.task.target].reverse();
+onboarding=recordPractice(onboarding,'SUBMIT',800);
+assert.equal(onboarding.onboarding.attempts[0].mode,'practice');
+assert.equal(onboarding.onboarding.attempts[0].exact,false);
+onboarding=preparePractice(onboarding);
+onboarding.onboarding.task.answer=[...onboarding.onboarding.task.target];
+onboarding=recordPractice(onboarding,'SUBMIT',900);
+assert.equal(onboarding.onboarding.attempts[1].exact,true);
+assert.equal(preparePractice(onboarding),onboarding);
+assert.deepEqual(onboarding.state,start());
+onboarding=beginFormal(restore(JSON.stringify(onboarding)));
+assert.ok(onboarding.onboarding.formalStartedAt);
+assert.equal(preparePractice(onboarding),onboarding);
+assert.deepEqual(onboarding.state,start());
+onboarding=prepare(onboarding);
+onboarding.task.answer=[...onboarding.task.target];
+onboarding=record(onboarding,'SUBMIT',1234);
+assert.equal(onboarding.state.trials[0].trial,1);
+assert.equal(onboarding.state.trials[0].mode,'formal');
+assert.deepEqual(onboarding.state.openGroup,[{trial:1,exact:true}]);
+assert.equal(onboarding.onboarding.attempts.length,2);
+const legacy=restore(JSON.stringify({version:RULES.version,state:onboarding.state,task:null}));
+assert.ok(hasFormalSession(legacy));
+assert.equal(legacy.state.valid,1);
+console.log('PASS: onboarding gate, practice retry, interruption, scoring isolation and legacy restore.');

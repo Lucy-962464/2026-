@@ -14,3 +14,26 @@ button{cursor:pointer;font-weight:700}button:disabled{opacity:.5;cursor:default}
 summary{cursor:pointer;font-weight:700}h2{margin-top:0}[hidden]{display:none!important}
 @media(max-width:660px){.chapters{grid-template-columns:repeat(2,1fr)}.card{padding:14px}header{padding:20px}}
 
+
+.entry{margin-top:16px;font-size:1.16rem}
+.entry h2{font-size:clamp(1.55rem,4vw,2rem);margin-bottom:.35em}
+.entry h3,.entry p{margin:.3em 0 .65em}
+.entry button{min-height:56px}
+.guide-steps{margin:20px 0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;counter-reset:guide}
+.guide-steps li{counter-increment:guide;padding:14px;border:1px solid #d7e1d6;border-radius:12px}
+.guide-steps h3::before{content:counter(guide) "．"}
+.guide-preview{min-height:132px;display:grid;align-content:center;gap:.3rem;background:#f7f7ef;padding:10px;border-radius:9px;font-size:.95rem}
+.guide-note,.practice-order{background:#edf4ee;border-radius:10px;padding:14px}
+.practice-order dt{font-weight:700}.practice-order dd{margin:0 0 .45rem}
+#choices button,#game-card .actions>button{min-height:56px}
+@media(max-width:740px){.guide-steps{grid-template-columns:1fr}.guide-preview{min-height:0}}
+.answer-slots{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0;padding:0;list-style:none}
+.answer-slots li{background:#edf4ee;border:1px solid #b5cbbd;border-radius:9px;padding:7px 12px}
+
+.guide-crop{display:block;overflow:hidden;position:relative;max-width:100%;border-radius:7px}
+.guide-crop img{display:block;max-width:none}
+.guide-watch{height:60px}
+.guide-place{width:275px}
+.guide-place img{width:169%;height:auto}
+.guide-submit{width:93px;height:56px}
+.guide-submit img{position:absolute;left:-70px;top:-55px}

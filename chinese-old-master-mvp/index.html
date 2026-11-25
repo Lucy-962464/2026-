@@ -4,19 +4,63 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>中华老当家 便当试玩</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=guide-1">
 </head>
 <body><main>
-  <header><p class="eyebrow">便当试玩 · MVP 1.0</p><h1>中华老当家</h1><p>记住菜品的出场顺序，再按原顺序装进便当。</p></header>
-  <section id="game">
+  <header><h1>中华老当家</h1></header>
+  <section id="home" class="card entry" aria-labelledby="home-title">
+    <h2 id="home-title" tabindex="-1">帮家人准备便当</h2>
+    <p>记住菜品顺序，再按同样的顺序装盒。</p>
+    <div class="actions">
+      <button id="home-start" class="primary">开始游戏</button>
+      <button id="home-rules">玩法说明</button>
+    </div>
+    <p id="home-status" class="small" role="status"></p>
+  </section>
+  <section id="rules" class="card entry" aria-labelledby="rules-title" hidden>
+    <h2 id="rules-title" tabindex="-1">怎样准备便当？</h2>
+    <ol class="guide-steps">
+      <li>
+        <div class="guide-preview" aria-hidden="true"><span class="small">正在展示菜品</span><span class="guide-crop guide-watch"><img src="guide-watch.png" alt=""></span></div>
+        <h3>记住菜品</h3><p>菜名会一个接一个出现。请记住它们的先后顺序。</p>
+      </li>
+      <li>
+        <div class="guide-preview" aria-hidden="true"><span class="guide-crop guide-place"><img src="guide-place.png" alt=""></span></div>
+        <h3>摆放菜品</h3><p>按原来的顺序依次点菜名。点错了，可以点「撤销」收回最后一道。</p>
+      </li>
+      <li>
+        <div class="guide-preview" aria-hidden="true"><span>第 1 格　番茄炒蛋<br>第 2 格　家常豆腐</span><span class="guide-crop guide-submit"><img src="guide-check.png" alt=""></span></div>
+        <h3>检查提交</h3><p>从第一格开始检查。准备好后点「提交便当」，进入下一轮。</p>
+      </li>
+    </ol>
+    <p class="guide-note">正式游戏会根据您的完成情况调整菜品数量。按照自己的节奏来就好。</p>
+    <div class="actions">
+      <button id="rules-practice" class="primary">我知道了，开始练习</button>
+      <button id="rules-back">返回首页</button>
+    </div>
+  </section>
+  <section id="practice-complete" class="card entry" aria-labelledby="practice-title" hidden>
+    <h2 id="practice-title" tabindex="-1">练习完成</h2>
+    <p id="practice-feedback"></p>
+    <dl class="practice-order">
+      <dt>正确顺序</dt><dd id="practice-target"></dd>
+      <dt>您摆放的顺序</dt><dd id="practice-answer"></dd>
+    </dl>
+    <p>如果已经明白怎么玩，就可以开始正式游戏。</p>
+    <div class="actions">
+      <button id="practice-retry">再练一次</button>
+      <button id="formal-start" class="primary">我明白了，进入正式游戏</button>
+    </div>
+  </section>
+  <section id="game" aria-label="便当游戏" hidden>
     <div id="chapters" class="chapters" aria-label="剧情进度"></div>
-    <article class="card">
+    <article class="card" id="game-card" tabindex="-1">
       <div class="state"><strong id="order"></strong><span id="progress"></span></div>
       <p id="storage" class="small" role="status"></p>
       <p id="feedback" role="status"></p>
       <div id="stage" class="stage" aria-live="polite">准备好后开始订单</div>
       <div id="choices" class="actions"></div>
-      <p id="answer"></p>
+      <ol id="answer" class="answer-slots" aria-label="便当内的摆放顺序" hidden></ol>
       <div class="actions">
         <button id="begin" class="primary">开始订单</button>
         <button id="undo" hidden>撤销</button><button id="hint" hidden>查看原顺序</button>
@@ -25,13 +69,20 @@
         <button id="resume" hidden>继续测评</button>
       </div>
       <p id="report" class="report" hidden></p>
-      <div class="actions end-actions">
+      <div class="actions end-actions" id="formal-actions">
         <button id="export">下载试玩记录</button><button id="end">提前结束测评</button><button id="reset">开始新测评</button>
       </div>
     </article>
-    <details class="card"><summary>本次逐轮记录</summary><div id="gameLog"></div></details>
+    <details class="card" id="formal-log"><summary>本次逐轮记录</summary><div id="gameLog"></div></details>
   </section>
-  <details class="card"><summary>使用范围</summary><p>本页面用于便当试玩。记录保存在当前浏览器。规则是原型参数，适切性和测量效度仍待真实预测试。</p></details>
-</main><script type="module" src="app.mjs"></script></body>
+  <details class="card">
+    <summary>使用范围与本机记录</summary>
+    <p>本页面用于便当试玩。练习和正式记录分别保存在当前浏览器。换设备或清除站点数据前，请下载所需记录。</p>
+    <div class="actions">
+      <button id="export-local">下载本机试玩存档</button>
+      <button id="home-reset" hidden>开始新测评</button>
+    </div>
+  </details>
+</main><script type="module" src="app.mjs?v=guide-1"></script></body>
 </html>
 
