@@ -37,3 +37,11 @@ summary{cursor:pointer;font-weight:700}h2{margin-top:0}[hidden]{display:none!imp
 .guide-place img{width:169%;height:auto}
 .guide-submit{width:93px;height:56px}
 .guide-submit img{position:absolute;left:-70px;top:-55px}
+
+#survey{width:min(720px,calc(100% - 32px));max-height:calc(100dvh - 32px);overflow:auto;padding:clamp(16px,4vw,32px);border:1px solid #d7e1d6;border-radius:18px;color:#193a33;background:white}
+#survey::backdrop{background:rgba(21,42,35,.66)}
+#survey h2{margin:0;font-size:clamp(1.35rem,4vw,1.9rem)}
+#survey-options{display:grid;gap:10px}
+#survey-options button{min-height:56px;text-align:left;font-size:1.1rem;background:#f3f8f4}
+#survey-options button:hover{background:#d8ebdf}
+@media(min-width:620px){#survey-options{grid-template-columns:repeat(2,minmax(0,1fr))}}

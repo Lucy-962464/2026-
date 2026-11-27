@@ -10,7 +10,7 @@ export const studyKey=studyReady?Array.from(new Uint8Array(await crypto.subtle.d
 export function trialRows(session) {
   const rows=[
     ...session.onboarding.attempts.map(r=>({...r,mode:'practice',number:r.attempt,valid:false})),
-    ...session.state.trials.map(r=>({...r,mode:'formal',number:r.trial}))
+    ...(session.feedbackGate?.state??session.state).trials.map(r=>({...r,mode:'formal',number:r.trial}))
   ];
   return rows.map(r=>({
     mode:r.mode,number:r.number,size:r.size,level:r.level??null,status:r.input.status,
@@ -24,11 +24,11 @@ export function trialRows(session) {
   }));
 }
 
-async function send(sessionId,trial) {
-  const response=await fetch(CLOUD_CONFIG.url+'/rest/v1/rpc/receive_bento_study_trial',{
+async function sendRPC(name,body) {
+  const response=await fetch(CLOUD_CONFIG.url+'/rest/v1/rpc/'+name,{
     method:'POST',
     headers:{apikey:CLOUD_CONFIG.publishableKey,'Content-Type':'application/json'},
-    body:JSON.stringify({p_token:studyToken,p_session:sessionId,p_trial:trial}),
+    body:JSON.stringify(body),
     signal:AbortSignal.timeout(10000)
   });
   if(!response.ok) {
@@ -40,7 +40,10 @@ async function send(sessionId,trial) {
   }
 }
 
+const send=(sessionId,trial)=>sendRPC('receive_bento_study_trial',{p_token:studyToken,p_session:sessionId,p_trial:trial});
+const sendFeedback=(sessionId,response)=>sendRPC('receive_bento_feedback',{p_token:studyToken,p_session:sessionId,p_feedback:response});
 export const joinStudy=sessionId=>send(sessionId,null);
+export const verifyFeedbackEndpoint=sessionId=>sendFeedback(sessionId,null);
 
 export function createStudySync(key,status) {
   let acknowledged=new Set(),active=false,scheduled=false,current,delay=2500,timer;
@@ -66,6 +69,13 @@ export function createStudySync(key,status) {
         // During practice there is no interaction with the formal model.
         await send(id,pending);
         acknowledged.add(pending.mode+':'+pending.number);
+        try {localStorage.setItem(key+'-uploaded',JSON.stringify([...acknowledged]));} catch {}
+      }
+      const keyFor=response=>'feedback:'+response.trial_no+':'+response.question_kind;
+      while((pending=(current.questionnaireResponses??[]).find(row=>!acknowledged.has(keyFor(row))))) {
+        status('正在同步难度反馈…');
+        await sendFeedback(id,pending);
+        acknowledged.add(keyFor(pending));
         try {localStorage.setItem(key+'-uploaded',JSON.stringify([...acknowledged]));} catch {}
       }
       delay=2500;

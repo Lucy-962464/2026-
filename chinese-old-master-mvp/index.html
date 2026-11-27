@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>中华老当家 便当试玩</title>
-  <link rel="stylesheet" href="style.css?v=guide-1">
+  <link rel="stylesheet" href="style.css?v=survey-13">
 </head>
 <body><main>
   <header><h1>中华老当家</h1></header>
   <aside id="study-info" class="card" hidden>
     <strong id="study-title">研究试玩</strong>
-    <p id="study-disclosure">本次试玩会保存菜品顺序、您的选择、提示与撤回操作、用时及关卡难度。研究团队使用研究编号整理记录。</p>
+    <p id="study-disclosure">本次试玩会保存菜品顺序、您的选择、提示与撤回操作、用时、关卡难度和您对游戏难度的反馈。研究团队使用研究编号整理记录。</p>
     <label id="study-consent-label"><input type="checkbox" id="study-consent"> 我已了解，并同意保存本次试玩记录。</label>
     <p id="study-entry-status" role="status"></p>
   </aside>
@@ -39,7 +39,7 @@
         <h3>检查提交</h3><p>从第一格开始检查。准备好后点「提交便当」，进入下一轮。</p>
       </li>
     </ol>
-    <p class="guide-note">正式游戏会根据您的完成情况调整菜品数量。按照自己的节奏来就好。</p>
+    <p class="guide-note">正式游戏会根据您的完成情况调整菜品数量。按照自己的节奏来就好。游戏过程中偶尔会问您觉得难度怎么样，请按实际感受选择。</p>
     <div class="actions">
       <button id="rules-practice" class="primary">我知道了，开始练习</button>
       <button id="rules-back">返回首页</button>
@@ -90,6 +90,11 @@
       <button id="home-reset" hidden>开始新测评</button>
     </div>
   </details>
-</main><script type="module" src="app.mjs?v=study-2"></script></body>
+  <dialog id="survey" aria-labelledby="survey-question" aria-describedby="survey-note">
+    <h2 id="survey-question" tabindex="-1"></h2>
+    <p id="survey-note">请按实际感受选择。答案仅用于研究，当前难度仍按游戏表现决定。</p>
+    <div id="survey-options"></div>
+  </dialog>
+</main><script type="module" src="app.mjs?v=survey-13"></script></body>
 </html>
 

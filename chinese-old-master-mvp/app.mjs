@@ -4,7 +4,8 @@ import {
   hasFormalSession,viewRules,practiceResults,preparePractice,recordPractice,beginFormal
 } from './session.mjs?v=guide-1';
 
-import {isStudy,studyReady,studyKey,joinStudy,createStudySync} from './study.mjs?v=study-2';
+import {isStudy,studyReady,studyKey,joinStudy,createStudySync,verifyFeedbackEndpoint} from './study.mjs?v=survey-13';
+import {QUESTIONS,stageFeedback,answerFeedback} from './questionnaire.mjs?v=13';
 
 const $=id=>document.getElementById(id);
 const STORAGE_KEY=studyKey?BASE_STORAGE_KEY+'/study/'+studyKey:BASE_STORAGE_KEY;
@@ -14,7 +15,7 @@ const setStudyStatus=message=>{
   if(!session.studyConsentAt) $('study-entry-status').textContent=message;
 };
 const syncStudy=studyReady?createStudySync(STORAGE_KEY,setStudyStatus):null;
-let joiningStudy=false;
+let joiningStudy=false,checkingFeedback=false;
 $('study-info').hidden=!isStudy;
 const reportNames={COMPLETED:'正常完成',INSUFFICIENT:'证据不足',ABNORMAL:'异常终止'};
 const views={
@@ -30,7 +31,7 @@ const needArchive=()=>hasFormalSession(session)||session.onboarding.attempts.len
 function display(name) {
   view=name;
   paint();
-  $(views[name][1]).focus();
+  if(!$('survey').open) $(views[name][1]).focus();
 }
 function save(next) {
   session=next;
@@ -100,12 +101,41 @@ function reportText(r,s) {
     (r.suggestedProbe?'规则另提出试做 '+r.suggestedProbe+' 道菜。':'')+
     floorNote;
 }
+function paintFeedback() {
+  const dialog=$('survey');
+  const question=view==='game'&&!otherTab?session.feedbackGate?.questions[0]:null;
+  if(!question) {
+    if(dialog.open) dialog.close();
+    return;
+  }
+  const {title,options}=QUESTIONS[question.question_kind];
+  if(dialog.open&&dialog.dataset.question===question.question_kind) return;
+  dialog.dataset.question=question.question_kind;
+  $('survey-question').textContent=title;
+  $('survey-options').replaceChildren(...options.map(([value,label])=>{
+    const button=document.createElement('button');
+    button.type='button';
+    button.textContent=label;
+    button.onclick=()=>{
+      if(otherTab) return;
+      save(answerFeedback(session,value));
+      if(!session.feedbackGate) finishFeedback();
+      paint();
+      if(!dialog.open) ($('begin').disabled?$('game-card'):$('begin')).focus();
+    };
+    return button;
+  }));
+  if(!dialog.open) dialog.showModal();
+  $('survey-question').focus();
+}
+$('survey').addEventListener('cancel',event=>event.preventDefault());
+
 function paint() {
   for(const [name,[id]] of Object.entries(views)) $(id).hidden=name!==view;
   const practice=isPractice(),completed=practiceResults(session);
   $('home-start').textContent=!practice?'继续正式游戏':completed.length?'查看练习结果':'开始游戏';
-  $('home-start').disabled=otherTab||joiningStudy||(isStudy&&!studyReady);
-  $('home-rules').disabled=$('rules-practice').disabled=otherTab||joiningStudy;
+  $('home-start').disabled=otherTab||joiningStudy||checkingFeedback||(isStudy&&!studyReady);
+  $('home-rules').disabled=$('rules-practice').disabled=otherTab||joiningStudy||checkingFeedback;
   $('study-info').hidden=!isStudy||Boolean(session.studyConsentAt);
   $('study-consent-label').hidden=!studyReady;
   $('home-reset').hidden=isStudy||view==='game'&&!practice||!needArchive();
@@ -120,8 +150,9 @@ function paint() {
     $('practice-target').textContent=lastPractice.input.target.join(' → ');
     $('practice-answer').textContent=lastPractice.input.answer.join(' → ');
     $('practice-retry').hidden=completed.length>=PRACTICE_LIMIT;
-    $('practice-retry').disabled=$('formal-start').disabled=otherTab;
+    $('practice-retry').disabled=$('formal-start').disabled=otherTab||checkingFeedback;
   }
+  paintFeedback();
   if(view!=='game') return;
 
   const {state:s}=session;
@@ -139,7 +170,7 @@ function paint() {
   $('progress').textContent=practice?'练习记录单独保存':'关内提交 '+s.submittedInLevel+' / '+RULES.storyQuota+' · 全程有效 '+s.valid+' / '+RULES.minValid+
     ' · 本组有效 '+s.openGroup.length+' / '+RULES.window;
   $('begin').hidden=practice;
-  $('begin').disabled=Boolean(task)||s.paused||done||otherTab;
+  $('begin').disabled=Boolean(task||session.feedbackGate)||s.paused||done||otherTab;
   $('resume').hidden=!s.paused||otherTab;
   $('abort').hidden=$('fault').hidden=!task||otherTab;
   $('undo').hidden=$('submit').hidden=$('hint').hidden=!answering;
@@ -215,21 +246,28 @@ function finish(status) {
     return;
   }
   clearTimeout(timer);
-  const next=record(session,status,elapsed);
+  const recorded=record(session,status,elapsed);
+  const next=!isStudy||session.feedbackEnabled?stageFeedback(session,recorded):recorded;
   save(next);phase='ready';
+  if(next.feedbackGate) {
+    $('feedback').textContent='';
+    $('stage').textContent='本轮已记录';
+  } else finishFeedback();
+  paint();
+}
+function finishFeedback() {
   const last=session.state.trials.at(-1);
   $('feedback').textContent=(last.exclusion?last.exclusion+' · ':'')+last.reason+
     (last.nextLevel===null&&last.settled?'（剧情已结束，未生成下一轮）':'')+
     (session.state.paused?'。连续 3 轮排除，已暂停。':'');
   $('stage').textContent='本轮已记录';
-  paint();
 }
 function download(filename,value) {
   const url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'}));
   const a=document.createElement('a');a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 function startOrder(practice) {
-  if(otherTab||phase!=='ready') return;
+  if(otherTab||phase!=='ready'||session.feedbackGate) return;
   const next=practice?preparePractice(session):prepare(session);
   if(next===session) return;
   save(next);
@@ -239,7 +277,10 @@ function startOrder(practice) {
   present(0);
 }
 function enterGame() {
-  $('stage').textContent='准备好后开始订单';
+  if(session.feedbackGate) {
+    $('feedback').textContent='';
+    $('stage').textContent='本轮已记录';
+  } else $('stage').textContent='准备好后开始订单';
   display('game');
 }
 function openRules() {
@@ -277,9 +318,26 @@ async function ensureStudyJoined() {
     paint();
   }
 }
+async function checkFeedbackService() {
+  if(!isStudy||session.feedbackEnabled||checkingFeedback) return;
+  checkingFeedback=true;
+  paint();
+  try {
+    await verifyFeedbackEndpoint(session.id);
+    if(!otherTab) save({...session,feedbackEnabled:true});
+  } catch {
+    setStudyStatus('问卷尚未连接，正式答题记录仍会正常保存。');
+  } finally {
+    checkingFeedback=false;
+    paint();
+  }
+}
 async function continueGame() {
   if(otherTab||!await ensureStudyJoined()) return;
-  if(!isPractice()) enterGame();
+  if(!isPractice()) {
+    await checkFeedbackService();
+    if(!otherTab) enterGame();
+  }
   else if(practiceResults(session).length) display('practiceComplete');
   else openRules();
 }
@@ -293,7 +351,9 @@ $('rules-practice').onclick=async ()=>{
   else continueGame();
 };
 $('practice-retry').onclick=()=>startOrder(true);
-$('formal-start').onclick=()=>{
+$('formal-start').onclick=async ()=>{
+  if(otherTab||checkingFeedback) return;
+  await checkFeedbackService();
   if(otherTab) return;
   const next=beginFormal(session);
   if(next===session) return;
@@ -309,12 +369,12 @@ $('abort').onclick=()=>finish('ABORT');
 $('fault').onclick=()=>finish('TECH');
 $('resume').onclick=()=>{save({...session,state:resume(session.state)});$('feedback').textContent='已继续测评';paint();};
 $('end').onclick=()=>{
-  if(!window.confirm('结束本次测评并保留已记录的试次？')) return;
+  if(session.feedbackGate||!window.confirm('结束本次测评并保留已记录的试次？')) return;
   if(session.task) finish('ABORT');
   save({...session,state:terminate(session.state,'用户选择提前结束')});paint();
 };
 function exportSession(item) {
-  const {state}=item;
+  const state=item.feedbackGate?.state??item.state;
   return {...item,rules:RULES,state:{...state,trials:state.trials.map(row=>({...row,mode:'formal'}))},metrics:stats(state)};
 }
 function resetSession() {
